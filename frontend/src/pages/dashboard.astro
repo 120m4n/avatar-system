@@ -75,7 +75,6 @@ import Layout from '../layouts/Layout.astro';
     
     let currentUser: any = null;
     let videoStream: MediaStream | null = null;
-    let capturedImageBlob: Blob | null = null;
 
     const errorMessage = document.getElementById('error-message') as HTMLDivElement;
     const successMessage = document.getElementById('success-message') as HTMLDivElement;
@@ -207,7 +206,6 @@ import Layout from '../layouts/Layout.astro';
         ctx.drawImage(video, 0, 0);
         canvas.toBlob(async (blob) => {
           if (blob) {
-            capturedImageBlob = blob;
             stopCamera();
             await uploadAvatar(blob);
           }
