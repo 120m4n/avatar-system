@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+frontend/node_modules/
 
 # Docker data volumes
 pb_data/
@@ -13,6 +14,7 @@ npm-debug.log*
 # Environment files
 .env
 .env.*
+!.env.example
 
 # OS files
 .DS_Store
@@ -21,3 +23,7 @@ Thumbs.db
 # IDE files
 .vscode/
 .idea/
+
+# Build artifacts
+frontend/dist/
+frontend/.astro/

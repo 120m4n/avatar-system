@@ -1,0 +1,307 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Dashboard - Avatar System">
+  <div class="header">
+    <div class="header-content">
+      <h1>Avatar System</h1>
+      <div class="nav">
+        <button id="logout-btn" class="btn btn-secondary">Cerrar Sesión</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <h2>Hola, <span id="username">Usuario</span>! 👋</h2>
+      
+      <div id="error-message" class="error" style="display: none;"></div>
+      <div id="success-message" class="success" style="display: none;"></div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+        <!-- Avatar Preview -->
+        <div>
+          <h3 style="margin-bottom: 1rem;">Tu Avatar Actual</h3>
+          <div id="avatar-preview" style="width: 300px; height: 300px; border-radius: 50%; overflow: hidden; border: 4px solid #667eea; margin: 0 auto; display: flex; align-items: center; justify-content: center; background: #f0f0f0;">
+            <span style="font-size: 100px;">👤</span>
+          </div>
+          <div style="text-align: center; margin-top: 1rem;">
+            <button id="delete-avatar-btn" class="btn btn-danger" style="display: none;">
+              Eliminar Avatar
+            </button>
+          </div>
+        </div>
+        
+        <!-- Upload Options -->
+        <div>
+          <h3 style="margin-bottom: 1rem;">Cambiar Avatar</h3>
+          
+          <!-- Camera Capture -->
+          <div style="margin-bottom: 2rem;">
+            <h4 style="margin-bottom: 0.5rem;">Tomar Foto</h4>
+            <div id="camera-container" style="display: none; margin-bottom: 1rem;">
+              <video id="video" autoplay style="width: 100%; max-width: 400px; border-radius: 8px; border: 2px solid #e0e0e0;"></video>
+              <canvas id="canvas" style="display: none;"></canvas>
+            </div>
+            <button id="start-camera-btn" class="btn btn-primary" style="margin-right: 0.5rem;">
+              📸 Abrir Cámara
+            </button>
+            <button id="capture-btn" class="btn btn-primary" style="display: none; margin-right: 0.5rem;">
+              ✓ Capturar
+            </button>
+            <button id="cancel-camera-btn" class="btn btn-secondary" style="display: none;">
+              ✕ Cancelar
+            </button>
+          </div>
+          
+          <!-- File Upload -->
+          <div>
+            <h4 style="margin-bottom: 0.5rem;">O Subir Archivo</h4>
+            <div class="form-group">
+              <input type="file" id="file-input" accept="image/*" style="padding: 0.5rem;" />
+            </div>
+            <button id="upload-file-btn" class="btn btn-primary">
+              📤 Subir Imagen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+    
+    let currentUser: any = null;
+    let videoStream: MediaStream | null = null;
+
+    const errorMessage = document.getElementById('error-message') as HTMLDivElement;
+    const successMessage = document.getElementById('success-message') as HTMLDivElement;
+    const usernameSpan = document.getElementById('username') as HTMLSpanElement;
+    const avatarPreview = document.getElementById('avatar-preview') as HTMLDivElement;
+    const deleteAvatarBtn = document.getElementById('delete-avatar-btn') as HTMLButtonElement;
+    
+    // Camera elements
+    const cameraContainer = document.getElementById('camera-container') as HTMLDivElement;
+    const video = document.getElementById('video') as HTMLVideoElement;
+    const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+    const startCameraBtn = document.getElementById('start-camera-btn') as HTMLButtonElement;
+    const captureBtn = document.getElementById('capture-btn') as HTMLButtonElement;
+    const cancelCameraBtn = document.getElementById('cancel-camera-btn') as HTMLButtonElement;
+    
+    // File upload elements
+    const fileInput = document.getElementById('file-input') as HTMLInputElement;
+    const uploadFileBtn = document.getElementById('upload-file-btn') as HTMLButtonElement;
+    
+    const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
+
+    function showError(message: string) {
+      errorMessage.textContent = message;
+      errorMessage.style.display = 'block';
+      successMessage.style.display = 'none';
+      setTimeout(() => {
+        errorMessage.style.display = 'none';
+      }, 5000);
+    }
+
+    function showSuccess(message: string) {
+      successMessage.textContent = message;
+      successMessage.style.display = 'block';
+      errorMessage.style.display = 'none';
+      setTimeout(() => {
+        successMessage.style.display = 'none';
+      }, 5000);
+    }
+
+    // Check authentication
+    async function checkAuth() {
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      
+      if (!token || !user) {
+        window.location.href = '/';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          currentUser = data.user;
+          usernameSpan.textContent = currentUser.username;
+          loadAvatar();
+        } else {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/';
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        showError('Error de conexión con el servidor');
+      }
+    }
+
+    // Load avatar
+    async function loadAvatar() {
+      if (currentUser.avatar) {
+        const img = document.createElement('img');
+        // Use avatar filename as cache buster instead of timestamp
+        const cacheBuster = currentUser.avatar ? `v=${encodeURIComponent(currentUser.avatar)}` : '';
+        img.src = `${API_URL}/api/users/${currentUser.id}/avatar?size=medium&${cacheBuster}`;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        img.onerror = () => {
+          avatarPreview.innerHTML = '<span style="font-size: 100px;">👤</span>';
+          deleteAvatarBtn.style.display = 'none';
+        };
+        img.onload = () => {
+          avatarPreview.innerHTML = '';
+          avatarPreview.appendChild(img);
+          deleteAvatarBtn.style.display = 'block';
+        };
+      } else {
+        avatarPreview.innerHTML = '<span style="font-size: 100px;">👤</span>';
+        deleteAvatarBtn.style.display = 'none';
+      }
+    }
+
+    // Camera functions
+    async function startCamera() {
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { width: 400, height: 400 } 
+        });
+        video.srcObject = videoStream;
+        cameraContainer.style.display = 'block';
+        startCameraBtn.style.display = 'none';
+        captureBtn.style.display = 'inline-block';
+        cancelCameraBtn.style.display = 'inline-block';
+      } catch (error) {
+        showError('No se pudo acceder a la cámara. Verifica los permisos.');
+        console.error('Camera error:', error);
+      }
+    }
+
+    function stopCamera() {
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+      cameraContainer.style.display = 'none';
+      startCameraBtn.style.display = 'inline-block';
+      captureBtn.style.display = 'none';
+      cancelCameraBtn.style.display = 'none';
+    }
+
+    function capturePhoto() {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            stopCamera();
+            await uploadAvatar(blob);
+          }
+        }, 'image/jpeg', 0.9);
+      }
+    }
+
+    // Upload avatar
+    async function uploadAvatar(blob: Blob) {
+      const token = localStorage.getItem('token');
+      if (!token || !currentUser) return;
+
+      const formData = new FormData();
+      formData.append('avatar', blob, 'avatar.jpg');
+
+      try {
+        const response = await fetch(`${API_URL}/api/users/${currentUser.id}/avatar`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showSuccess('¡Avatar actualizado exitosamente!');
+          currentUser.avatar = data.user.avatar;
+          localStorage.setItem('user', JSON.stringify(currentUser));
+          await loadAvatar();
+        } else {
+          showError(data.error || 'Error al subir avatar');
+        }
+      } catch (error) {
+        showError('Error de conexión al subir avatar');
+        console.error('Upload error:', error);
+      }
+    }
+
+    // Delete avatar
+    async function deleteAvatar() {
+      if (!confirm('¿Estás seguro de que deseas eliminar tu avatar?')) return;
+
+      const token = localStorage.getItem('token');
+      if (!token || !currentUser) return;
+
+      try {
+        const response = await fetch(`${API_URL}/api/users/${currentUser.id}/avatar`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showSuccess('Avatar eliminado exitosamente');
+          currentUser.avatar = null;
+          localStorage.setItem('user', JSON.stringify(currentUser));
+          await loadAvatar();
+        } else {
+          showError(data.error || 'Error al eliminar avatar');
+        }
+      } catch (error) {
+        showError('Error de conexión al eliminar avatar');
+        console.error('Delete error:', error);
+      }
+    }
+
+    // Event listeners
+    startCameraBtn.addEventListener('click', startCamera);
+    captureBtn.addEventListener('click', capturePhoto);
+    cancelCameraBtn.addEventListener('click', stopCamera);
+
+    uploadFileBtn.addEventListener('click', () => {
+      const file = fileInput.files?.[0];
+      if (file) {
+        uploadAvatar(file);
+      } else {
+        showError('Por favor selecciona un archivo');
+      }
+    });
+
+    deleteAvatarBtn.addEventListener('click', deleteAvatar);
+
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/';
+    });
+
+    // Initialize
+    checkAuth();
+  </script>
+</Layout>

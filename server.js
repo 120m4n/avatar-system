@@ -32,7 +32,30 @@ const upload = multer({
 
 // Middleware
 app.use(express.json());
+
+// CORS configuration
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',') 
+  : ['http://localhost:4321', 'http://localhost:3000'];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
+
 app.use(express.static('public'));
+app.use(express.static('frontend/dist'));
 
 // Almacén en memoria para caché de imágenes
 const imageCache = new Map();
@@ -55,6 +78,105 @@ const authenticateToken = async (req, res, next) => {
     res.status(401).json({ error: 'Token inválido o expirado' });
   }
 };
+
+// Endpoint para registro de usuario
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, passwordConfirm, username } = req.body;
+
+    if (!email || !password || !passwordConfirm || !username) {
+      return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    }
+
+    if (password !== passwordConfirm) {
+      return res.status(400).json({ error: 'Las contraseñas no coinciden' });
+    }
+
+    const user = await pb.collection('users').create({
+      email,
+      password,
+      passwordConfirm,
+      username,
+      emailVisibility: true
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Usuario registrado exitosamente',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      }
+    });
+  } catch (error) {
+    console.error('Error en registro:', error);
+    res.status(400).json({ 
+      error: 'Error al registrar usuario',
+      details: error.data || error.message
+    });
+  }
+});
+
+// Endpoint para login
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email y contraseña son requeridos' });
+    }
+
+    const authData = await pb.collection('users').authWithPassword(email, password);
+
+    res.json({
+      success: true,
+      message: 'Login exitoso',
+      token: authData.token,
+      user: {
+        id: authData.record.id,
+        username: authData.record.username,
+        email: authData.record.email,
+        avatar: authData.record.avatar
+      }
+    });
+  } catch (error) {
+    console.error('Error en login:', error);
+    res.status(401).json({ 
+      error: 'Credenciales inválidas'
+    });
+  }
+});
+
+// Endpoint para logout
+app.post('/api/auth/logout', authenticateToken, (req, res) => {
+  // Token invalidation is handled by the client removing the token
+  // PocketBase tokens are stateless JWTs, so we don't need to invalidate server-side
+  res.json({
+    success: true,
+    message: 'Logout exitoso'
+  });
+});
+
+// Endpoint para verificar token
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      user: {
+        id: req.user.id,
+        username: req.user.username,
+        email: req.user.email,
+        avatar: req.user.avatar,
+        avatarUrl: req.user.avatar 
+          ? `/api/users/${req.user.id}/avatar`
+          : null
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener información del usuario' });
+  }
+});
 
 // Endpoint para subir avatar
 app.post('/api/users/:userId/avatar', authenticateToken, upload.single('avatar'), async (req, res) => {

@@ -1,0 +1,93 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Login - Avatar System">
+  <div class="container">
+    <h1>🎨 Avatar System</h1>
+    
+    <div class="card" style="max-width: 500px; margin: 0 auto;">
+      <h2>Iniciar Sesión</h2>
+      
+      <div id="error-message" class="error" style="display: none;"></div>
+      <div id="success-message" class="success" style="display: none;"></div>
+      
+      <form id="login-form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required placeholder="tu@email.com" />
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Contraseña</label>
+          <input type="password" id="password" name="password" required placeholder="••••••••" />
+        </div>
+        
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">
+          Iniciar Sesión
+        </button>
+      </form>
+      
+      <div style="text-align: center; margin-top: 1rem;">
+        <p style="color: #666;">
+          ¿No tienes cuenta? <a href="/register" style="color: #667eea; font-weight: 600;">Registrarse</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+
+    const form = document.getElementById('login-form') as HTMLFormElement;
+    const errorMessage = document.getElementById('error-message') as HTMLDivElement;
+    const successMessage = document.getElementById('success-message') as HTMLDivElement;
+
+    function showError(message: string) {
+      errorMessage.textContent = message;
+      errorMessage.style.display = 'block';
+      successMessage.style.display = 'none';
+    }
+
+    function showSuccess(message: string) {
+      successMessage.textContent = message;
+      successMessage.style.display = 'block';
+      errorMessage.style.display = 'none';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = (document.getElementById('email') as HTMLInputElement).value;
+      const password = (document.getElementById('password') as HTMLInputElement).value;
+
+      try {
+        const response = await fetch(`${API_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          
+          showSuccess('¡Login exitoso! Redirigiendo...');
+          
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 1000);
+        } else {
+          showError(data.error || 'Error al iniciar sesión');
+        }
+      } catch (error) {
+        showError('Error de conexión. Por favor, verifica que el servidor esté ejecutándose.');
+        console.error('Error:', error);
+      }
+    });
+  </script>
+</Layout>
