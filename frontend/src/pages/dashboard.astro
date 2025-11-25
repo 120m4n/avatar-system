@@ -71,7 +71,7 @@ import Layout from '../layouts/Layout.astro';
   </div>
 
   <script>
-    const API_URL = 'http://localhost:3000';
+    const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
     
     let currentUser: any = null;
     let videoStream: MediaStream | null = null;
@@ -151,7 +151,9 @@ import Layout from '../layouts/Layout.astro';
     async function loadAvatar() {
       if (currentUser.avatar) {
         const img = document.createElement('img');
-        img.src = `${API_URL}/api/users/${currentUser.id}/avatar?size=medium&t=${Date.now()}`;
+        // Use avatar filename as cache buster instead of timestamp
+        const cacheBuster = currentUser.avatar ? `v=${encodeURIComponent(currentUser.avatar)}` : '';
+        img.src = `${API_URL}/api/users/${currentUser.id}/avatar?size=medium&${cacheBuster}`;
         img.style.width = '100%';
         img.style.height = '100%';
         img.style.objectFit = 'cover';

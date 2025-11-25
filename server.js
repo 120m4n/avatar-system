@@ -34,10 +34,18 @@ const upload = multer({
 app.use(express.json());
 
 // CORS configuration
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',') 
+  : ['http://localhost:4321', 'http://localhost:3000'];
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
   
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -141,8 +149,9 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // Endpoint para logout
-app.post('/api/auth/logout', (req, res) => {
-  pb.authStore.clear();
+app.post('/api/auth/logout', authenticateToken, (req, res) => {
+  // Token invalidation is handled by the client removing the token
+  // PocketBase tokens are stateless JWTs, so we don't need to invalidate server-side
   res.json({
     success: true,
     message: 'Logout exitoso'

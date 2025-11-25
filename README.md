@@ -37,7 +37,13 @@ git clone <repository-url>
 cd avatar-system
 ```
 
-2. **Construir el frontend**
+2. **Configurar variables de entorno (opcional)**
+```bash
+cp .env.example .env
+# Edita .env según tus necesidades
+```
+
+3. **Construir el frontend**
 ```bash
 npm run build:frontend
 ```
@@ -292,12 +298,24 @@ docker-compose down -v
 ## 🔒 Configuración de Seguridad
 
 ### Variables de Entorno
-Crea un archivo `.env` (opcional):
+Crea un archivo `.env` basado en `.env.example`:
 ```bash
-POCKETBASE_URL=http://pocketbase:8090
+# Server Configuration
 NODE_ENV=production
 PORT=3000
+
+# PocketBase Configuration
+POCKETBASE_URL=http://pocketbase:8090
+
+# CORS Configuration
+# Comma-separated list of allowed origins
+ALLOWED_ORIGINS=http://localhost:4321,http://localhost:3000,https://tu-dominio.com
+
+# Frontend Build Configuration (for building)
+PUBLIC_API_URL=http://localhost:3000
 ```
+
+**Producción**: Asegúrate de configurar `ALLOWED_ORIGINS` con solo los dominios permitidos y `PUBLIC_API_URL` con tu URL de API real.
 
 ### Configuración de PocketBase
 1. **Habilita autenticación por email**
@@ -382,11 +400,13 @@ npm run build:frontend
 
 ## 📝 Mejoras Realizadas al server.js
 
-1. **Añadido CORS**: Permite que el frontend acceda a la API desde cualquier origen
+1. **Añadido CORS con control de orígenes**: Permite configurar orígenes permitidos vía variable de entorno `ALLOWED_ORIGINS`
 2. **Endpoints de autenticación**: `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`
-3. **Actualización de multer**: Versión 2.0.2 (corrige vulnerabilidades de seguridad)
+3. **Actualización de multer**: Versión 2.0.2 (corrige CVE-2022-24434)
 4. **Servir frontend estático**: El servidor ahora sirve la aplicación Astro construida
 5. **Mejor manejo de errores**: Respuestas de error más descriptivas
+6. **Logout mejorado**: No afecta el authStore global, usa invalidación de token en el cliente
+7. **Variables de entorno**: Soporte completo para configuración vía variables de entorno
 
 ## 🌐 Producción
 

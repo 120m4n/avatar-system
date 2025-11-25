@@ -47,7 +47,7 @@ import Layout from '../layouts/Layout.astro';
   </div>
 
   <script>
-    const API_URL = 'http://localhost:3000';
+    const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
 
     const form = document.getElementById('register-form') as HTMLFormElement;
     const errorMessage = document.getElementById('error-message') as HTMLDivElement;
