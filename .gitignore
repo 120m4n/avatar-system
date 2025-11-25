@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+frontend/node_modules/
 
 # Docker data volumes
 pb_data/
@@ -21,3 +22,7 @@ Thumbs.db
 # IDE files
 .vscode/
 .idea/
+
+# Build artifacts
+frontend/dist/
+frontend/.astro/
