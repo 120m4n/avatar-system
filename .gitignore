@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Docker data volumes
+pb_data/
+pb_public/
+uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
