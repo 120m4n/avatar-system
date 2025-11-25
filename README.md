@@ -412,13 +412,41 @@ npm run build:frontend
 
 Para producción, considera:
 - ✅ Configurar un proxy reverso (nginx)
-- ✅ Implementar rate limiting
+- ✅ **Implementar rate limiting** (especialmente en endpoints de autenticación para prevenir ataques de fuerza bruta)
 - ✅ Configurar SSL/TLS (Let's Encrypt)
 - ✅ Usar base de datos externa para PocketBase
 - ✅ Implementar logging estructurado
 - ✅ Configurar backups automáticos
 - ✅ Usar CDN para servir avatares
 - ✅ Implementar monitoreo y alertas
+
+### Rate Limiting Recomendado
+
+Para proteger los endpoints de autenticación, considera usar `express-rate-limit`:
+
+```bash
+npm install express-rate-limit
+```
+
+```javascript
+import rateLimit from 'express-rate-limit';
+
+// Rate limiter para autenticación
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // límite de 5 intentos por ventana
+  message: 'Demasiados intentos de login, intenta de nuevo más tarde'
+});
+
+// Aplicar a endpoints de autenticación
+app.post('/api/auth/login', authLimiter, async (req, res) => {
+  // ... código existente
+});
+
+app.post('/api/auth/register', authLimiter, async (req, res) => {
+  // ... código existente
+});
+```
 
 ## 📄 Licencia
 
