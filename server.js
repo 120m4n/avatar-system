@@ -91,7 +91,7 @@ const authorizeUserAccess = async (req, res, next) => {
     }
 
     // Verificar que el usuario autenticado sea el mismo que el userId o sea admin
-    if (req.user.id !== userId && !req.user.admin) {
+    if (req.user.id !== userId && !(req.user.admin === true)) {
       return res.status(403).json({ error: 'No tienes permisos para acceder a este recurso' });
     }
 
@@ -341,6 +341,7 @@ app.get('/api/users/:userId/avatar', async (req, res) => {
 // Endpoint para obtener lista de todos los usuarios (protegido)
 app.get('/api/users', authenticateToken, async (req, res) => {
   try {
+    const baseUrl = process.env.PUBLIC_API_URL || `http://localhost:${port}`;
     const users = await pb.collection('users').getFullList({
       fields: 'id,name,email,created,avatar'
     });
@@ -348,7 +349,7 @@ app.get('/api/users', authenticateToken, async (req, res) => {
     const usersWithAvatarUrls = users.map(user => ({
       ...user,
       avatarUrl: user.avatar 
-        ? `http://localhost:3000/api/users/${user.id}/avatar`
+        ? `${baseUrl}/api/users/${user.id}/avatar`
         : null
     }));
 
@@ -366,13 +367,14 @@ app.get('/api/users', authenticateToken, async (req, res) => {
 app.get('/api/users/:userId', authenticateToken, authorizeUserAccess, async (req, res) => {
   try {
     const { userId } = req.params;
+    const baseUrl = process.env.PUBLIC_API_URL || `http://localhost:${port}`;
     
     const user = await pb.collection('users').getOne(userId, {
       fields: 'id,name,email,created,avatar'
     });
 
     const avatarUrl = user.avatar 
-      ? `http://localhost:3000/api/users/${userId}/avatar`
+      ? `${baseUrl}/api/users/${userId}/avatar`
       : null;
 
     res.json({
