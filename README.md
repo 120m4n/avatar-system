@@ -118,7 +118,7 @@ POST /api/auth/register
 Content-Type: application/json
 
 {
-  "username": "usuario123",
+  "name": "usuario123",
   "email": "usuario@email.com",
   "password": "contraseña123",
   "passwordConfirm": "contraseña123"
@@ -142,7 +142,7 @@ Response:
   "token": "jwt_token_here",
   "user": {
     "id": "user_id",
-    "username": "usuario123",
+    "name": "usuario123",
     "email": "usuario@email.com",
     "avatar": "avatar_filename.webp"
   }
@@ -180,6 +180,12 @@ Tamaños disponibles:
 - `medium`: 300x300px (default)
 - `large`: 600x600px
 - `original`: tamaño original
+
+#### Listar Todos los Usuarios
+```http
+GET /api/users
+Authorization: Bearer <token>
+```
 
 #### Obtener Información de Usuario
 ```http
@@ -240,7 +246,7 @@ En el dashboard (http://localhost:3000/dashboard):
 curl -X POST http://localhost:3000/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "testuser",
+    "name": "testuser",
     "email": "test@example.com",
     "password": "password123",
     "passwordConfirm": "password123"

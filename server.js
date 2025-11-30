@@ -79,12 +79,34 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
+// Middleware para administrar el endpoint /api/users/:userId
+// Verifica que el usuario autenticado tenga permisos sobre el userId especificado
+const authorizeUserAccess = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    
+    // Verificar que el userId sea válido
+    if (!userId) {
+      return res.status(400).json({ error: 'ID de usuario requerido' });
+    }
+
+    // Verificar que el usuario autenticado sea el mismo que el userId o sea admin
+    if (req.user.id !== userId && !req.user.admin) {
+      return res.status(403).json({ error: 'No tienes permisos para acceder a este recurso' });
+    }
+
+    next();
+  } catch (error) {
+    res.status(500).json({ error: 'Error al verificar permisos' });
+  }
+};
+
 // Endpoint para registro de usuario
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, passwordConfirm, username } = req.body;
+    const { email, password, passwordConfirm, name } = req.body;
 
-    if (!email || !password || !passwordConfirm || !username) {
+    if (!email || !password || !passwordConfirm || !name) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
 
@@ -96,7 +118,7 @@ app.post('/api/auth/register', async (req, res) => {
       email,
       password,
       passwordConfirm,
-      username,
+      name,
       emailVisibility: true
     });
 
@@ -105,7 +127,7 @@ app.post('/api/auth/register', async (req, res) => {
       message: 'Usuario registrado exitosamente',
       user: {
         id: user.id,
-        username: user.username,
+        name: user.name,
         email: user.email
       }
     });
@@ -135,7 +157,7 @@ app.post('/api/auth/login', async (req, res) => {
       token: authData.token,
       user: {
         id: authData.record.id,
-        username: authData.record.username,
+        name: authData.record.name,
         email: authData.record.email,
         avatar: authData.record.avatar
       }
@@ -165,7 +187,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
       success: true,
       user: {
         id: req.user.id,
-        username: req.user.username,
+        name: req.user.name,
         email: req.user.email,
         avatar: req.user.avatar,
         avatarUrl: req.user.avatar 
@@ -316,13 +338,37 @@ app.get('/api/users/:userId/avatar', async (req, res) => {
   }
 });
 
+// Endpoint para obtener lista de todos los usuarios (protegido)
+app.get('/api/users', authenticateToken, async (req, res) => {
+  try {
+    const users = await pb.collection('users').getFullList({
+      fields: 'id,name,email,created,avatar'
+    });
+
+    const usersWithAvatarUrls = users.map(user => ({
+      ...user,
+      avatarUrl: user.avatar 
+        ? `http://localhost:3000/api/users/${user.id}/avatar`
+        : null
+    }));
+
+    res.json({
+      success: true,
+      users: usersWithAvatarUrls
+    });
+  } catch (error) {
+    console.error('Error obteniendo usuarios:', error);
+    res.status(500).json({ error: 'Error al obtener lista de usuarios' });
+  }
+});
+
 // Endpoint para obtener información del usuario
-app.get('/api/users/:userId', authenticateToken, async (req, res) => {
+app.get('/api/users/:userId', authenticateToken, authorizeUserAccess, async (req, res) => {
   try {
     const { userId } = req.params;
     
     const user = await pb.collection('users').getOne(userId, {
-      fields: 'id,username,email,created,avatar'
+      fields: 'id,name,email,created,avatar'
     });
 
     const avatarUrl = user.avatar 

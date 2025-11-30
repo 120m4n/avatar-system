@@ -14,7 +14,7 @@ import Layout from '../layouts/Layout.astro';
 
   <div class="container">
     <div class="card">
-      <h2>Hola, <span id="username">Usuario</span>! 👋</h2>
+      <h2>Hola, <span id="user-name">Usuario</span>! 👋</h2>
       
       <div id="error-message" class="error" style="display: none;"></div>
       <div id="success-message" class="success" style="display: none;"></div>
@@ -78,7 +78,7 @@ import Layout from '../layouts/Layout.astro';
 
     const errorMessage = document.getElementById('error-message') as HTMLDivElement;
     const successMessage = document.getElementById('success-message') as HTMLDivElement;
-    const usernameSpan = document.getElementById('username') as HTMLSpanElement;
+    const userNameSpan = document.getElementById('user-name') as HTMLSpanElement;
     const avatarPreview = document.getElementById('avatar-preview') as HTMLDivElement;
     const deleteAvatarBtn = document.getElementById('delete-avatar-btn') as HTMLButtonElement;
     
@@ -134,7 +134,7 @@ import Layout from '../layouts/Layout.astro';
         if (response.ok) {
           const data = await response.json();
           currentUser = data.user;
-          usernameSpan.textContent = currentUser.username;
+          userNameSpan.textContent = currentUser.name;
           loadAvatar();
         } else {
           localStorage.removeItem('token');
