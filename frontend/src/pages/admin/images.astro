@@ -310,9 +310,12 @@ import Layout from '../../layouts/Layout.astro';
         return;
       }
 
+      // Fallback placeholder image as a constant
+      const placeholderImage = 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect fill=%27%23f0f0f0%27 width=%27100%27 height=%27100%27/%3E%3Ctext x=%2750%27 y=%2755%27 text-anchor=%27middle%27 font-size=%2740%27%3E🖼️%3C/text%3E%3C/svg%3E';
+
       imagesGrid.innerHTML = images.map(image => `
         <div class="image-card" data-id="${image.id}">
-          <img src="${image.imageUrl}?size=medium" alt="${escapeHtml(image.alias)}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2250%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2240%22>🖼️</text></svg>'" />
+          <img src="${image.imageUrl}?size=medium" alt="${escapeHtml(image.alias)}" onerror="this.src='${placeholderImage}'" />
           <h4>${escapeHtml(image.alias)}</h4>
           <div class="meta">
             ID: ${image.id}<br>

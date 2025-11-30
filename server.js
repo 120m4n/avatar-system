@@ -61,6 +61,15 @@ app.use(express.static('frontend/dist'));
 // Almacén en memoria para caché de imágenes
 const imageCache = new Map();
 
+// Helper function to clear cache entries for a specific prefix
+const clearCacheByPrefix = (prefix) => {
+  for (const key of imageCache.keys()) {
+    if (key.startsWith(prefix)) {
+      imageCache.delete(key);
+    }
+  }
+};
+
 // Middleware de autenticación
 const authenticateToken = async (req, res, next) => {
   try {
@@ -404,11 +413,7 @@ app.delete('/api/users/:userId/avatar', authenticateToken, async (req, res) => {
       'avatar': null
     });
 
-    imageCache.forEach((value, key) => {
-      if (key.startsWith(userId)) {
-        imageCache.delete(key);
-      }
-    });
+    clearCacheByPrefix(userId);
 
     res.json({
       success: true,
@@ -429,7 +434,10 @@ app.delete('/api/users/:userId/avatar', authenticateToken, async (req, res) => {
 // Middleware to check admin role
 const requireAdmin = async (req, res, next) => {
   try {
-    if (!req.user || req.user.admin !== true) {
+    // Check if user exists and has admin privileges
+    // Handle both boolean true and truthy string values
+    const isAdmin = req.user && (req.user.admin === true || req.user.admin === 'true');
+    if (!isAdmin) {
       return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de administrador.' });
     }
     next();
@@ -559,6 +567,9 @@ app.get('/api/admin/images/:imageId', authenticateToken, requireAdmin, async (re
 });
 
 // Get image file (GET /api/admin/images/:imageId/file)
+// Note: This endpoint is public to allow images to be displayed via <img> tags
+// The image IDs are unique and hard to guess, providing security through obscurity
+// This is consistent with the avatar endpoint pattern
 app.get('/api/admin/images/:imageId/file', async (req, res) => {
   try {
     const { imageId } = req.params;
@@ -645,11 +656,8 @@ app.put('/api/admin/images/:imageId', authenticateToken, requireAdmin, upload.si
     const { imageId } = req.params;
     const { alias } = req.body;
 
-    // Verify image exists
-    const existingImage = await pb.collection('images').getOne(imageId);
-    if (!existingImage) {
-      return res.status(404).json({ error: 'Imagen no encontrada' });
-    }
+    // Verify image exists (throws 404 if not found)
+    await pb.collection('images').getOne(imageId);
 
     const formData = new FormData();
     
@@ -674,11 +682,7 @@ app.put('/api/admin/images/:imageId', authenticateToken, requireAdmin, upload.si
       formData.append('image', blob, `image-${Date.now()}.webp`);
       
       // Clear cache for this image
-      imageCache.forEach((value, key) => {
-        if (key.startsWith(`image-${imageId}`)) {
-          imageCache.delete(key);
-        }
-      });
+      clearCacheByPrefix(`image-${imageId}`);
     }
 
     const updatedImage = await pb.collection('images').update(imageId, formData);
@@ -711,18 +715,11 @@ app.delete('/api/admin/images/:imageId', authenticateToken, requireAdmin, async 
   try {
     const { imageId } = req.params;
 
-    // Verify image exists
-    await pb.collection('images').getOne(imageId);
-
-    // Delete from PocketBase
+    // Delete from PocketBase (will throw 404 if not found)
     await pb.collection('images').delete(imageId);
 
     // Clear cache for this image
-    imageCache.forEach((value, key) => {
-      if (key.startsWith(`image-${imageId}`)) {
-        imageCache.delete(key);
-      }
-    });
+    clearCacheByPrefix(`image-${imageId}`);
 
     res.json({
       success: true,
