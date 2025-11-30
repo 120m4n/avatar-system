@@ -7,6 +7,7 @@ import Layout from '../layouts/Layout.astro';
     <div class="header-content">
       <h1>Avatar System</h1>
       <div class="nav">
+        <a id="admin-link" href="/admin/images" class="btn btn-primary" style="display: none;">🖼️ Admin: Imágenes</a>
         <button id="logout-btn" class="btn btn-secondary">Cerrar Sesión</button>
       </div>
     </div>
@@ -95,6 +96,7 @@ import Layout from '../layouts/Layout.astro';
     const uploadFileBtn = document.getElementById('upload-file-btn') as HTMLButtonElement;
     
     const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
+    const adminLink = document.getElementById('admin-link') as HTMLAnchorElement;
 
     function showError(message: string) {
       errorMessage.textContent = message;
@@ -135,6 +137,12 @@ import Layout from '../layouts/Layout.astro';
           const data = await response.json();
           currentUser = data.user;
           userNameSpan.textContent = currentUser.name;
+          
+          // Show admin link if user is admin
+          if (currentUser.admin) {
+            adminLink.style.display = 'inline-block';
+          }
+          
           loadAvatar();
         } else {
           localStorage.removeItem('token');
