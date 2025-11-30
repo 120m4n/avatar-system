@@ -14,8 +14,8 @@ import Layout from '../layouts/Layout.astro';
       
       <form id="register-form">
         <div class="form-group">
-          <label for="username">Nombre de usuario</label>
-          <input type="text" id="username" name="username" required placeholder="usuario123" />
+          <label for="name">Nombre</label>
+          <input type="text" id="name" name="name" required placeholder="Tu nombre" />
         </div>
 
         <div class="form-group">
@@ -68,7 +68,7 @@ import Layout from '../layouts/Layout.astro';
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const username = (document.getElementById('username') as HTMLInputElement).value;
+      const name = (document.getElementById('name') as HTMLInputElement).value;
       const email = (document.getElementById('email') as HTMLInputElement).value;
       const password = (document.getElementById('password') as HTMLInputElement).value;
       const passwordConfirm = (document.getElementById('passwordConfirm') as HTMLInputElement).value;
@@ -84,7 +84,7 @@ import Layout from '../layouts/Layout.astro';
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ username, email, password, passwordConfirm }),
+          body: JSON.stringify({ name, email, password, passwordConfirm }),
         });
 
         const data = await response.json();
