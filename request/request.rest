@@ -1,0 +1,78 @@
+@server=http://localhost:3000
+
+@randomEmail = "user_test@example.com.com"
+
+### Get all health 
+GET {{server}}/health 
+
+### 
+# @name login
+POST {{server}}/api/auth/login HTTP/1.1
+content-type: application/json
+
+{
+  "email": "120m4n.sg@gmail.com",
+  "password": "9gd-tvL-TtF.RXv"
+}
+
+### login
+@authToken = {{login.response.body.token}}
+
+###
+# @name loginRandom
+POST {{server}}/api/auth/login HTTP/1.1
+content-type: application/json
+
+{
+  "email": {{randomEmail}},
+  "password": "P@ssw0rd123"
+}
+
+### login
+@authTokenRandom = {{loginRandom.response.body.token}}
+
+### 
+# @name loginAdmin
+POST {{server}}/api/auth/login HTTP/1.1
+content-type: application/json
+
+{
+  "email": "test@test.com",
+  "password": "tonijas1234"
+}
+
+### login
+@authTokenAdmin = {{loginAdmin.response.body.token}}
+
+### api user
+GET {{server}}/api/users/hr2kp7owgwymruv HTTP/1.1
+content-type: application/json
+Authorization: Bearer {{authToken}}
+
+### api user about me
+GET {{server}}/api/auth/me HTTP/1.1
+content-type: application/json
+Authorization: Bearer {{authToken}}
+
+### api get all users
+GET {{server}}/api/users HTTP/1.1
+content-type: application/json
+Authorization: Bearer {{authToken}}
+
+
+### api register
+POST {{server}}/api/auth/register HTTP/1.1
+content-type: application/json
+
+{
+  "email": {{randomEmail}},
+  "password": "P@ssw0rd123",
+  "passwordConfirm": "P@ssw0rd123",
+  "name": "John Doe"
+}
+
+###
+@userid = o6972zhdzrx9yn5
+### api get user avatar small
+GET {{server}}/api/users/{{userid}}/avatar?size=small HTTP/1.1
+content-type: application/json

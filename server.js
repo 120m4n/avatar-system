@@ -12,7 +12,8 @@ const app = express();
 const port = 3000;
 
 // Configuración de PocketBase
-const pb = new PocketBase('http://pocketbase:8090');
+
+const pb = new PocketBase(process.env.POCKETBASE_URL || 'http://localhost:8090');
 
 // Configuración de Multer para almacenamiento en memoria
 const storage = multer.memoryStorage();
@@ -277,7 +278,8 @@ app.get('/api/users/:userId/avatar', async (req, res) => {
       return res.status(404).json({ error: 'Avatar no encontrado' });
     }
 
-    const imageUrl = `http://pocketbase:8090/api/files/${user.collectionId}/${user.id}/${user.avatar}`;
+    const baseUrl = process.env.POCKETBASE_URL || 'http://localhost:8090';
+    const imageUrl = `${baseUrl}/api/files/${user.collectionId}/${user.id}/${user.avatar}`;
     
     const response = await fetch(imageUrl);
     if (!response.ok) {
@@ -370,7 +372,7 @@ app.get('/api/users/:userId', authenticateToken, authorizeUserAccess, async (req
     const baseUrl = process.env.PUBLIC_API_URL || `http://localhost:${port}`;
     
     const user = await pb.collection('users').getOne(userId, {
-      fields: 'id,name,email,created,avatar'
+      fields: 'id,name,email,created,updated,avatar'
     });
 
     const avatarUrl = user.avatar 
