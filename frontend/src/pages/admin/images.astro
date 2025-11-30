@@ -1,0 +1,561 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Admin - Gestión de Imágenes">
+  <div class="header">
+    <div class="header-content">
+      <h1>🖼️ Gestión de Imágenes</h1>
+      <div class="nav">
+        <a href="/dashboard" class="btn btn-secondary">← Volver al Dashboard</a>
+        <button id="logout-btn" class="btn btn-secondary">Cerrar Sesión</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div id="error-message" class="error" style="display: none;"></div>
+      <div id="success-message" class="success" style="display: none;"></div>
+      
+      <!-- Create New Image Form -->
+      <div class="create-section">
+        <h2>Crear Nueva Imagen</h2>
+        <form id="create-image-form" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+          <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+            <label for="alias">Alias</label>
+            <input type="text" id="alias" name="alias" required placeholder="Nombre descriptivo de la imagen" />
+          </div>
+          <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+            <label for="image-file">Imagen</label>
+            <input type="file" id="image-file" accept="image/*" required style="padding: 0.5rem;" />
+          </div>
+          <button type="submit" class="btn btn-primary" id="create-btn">
+            ➕ Crear Imagen
+          </button>
+        </form>
+      </div>
+      
+      <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e0e0e0;" />
+      
+      <!-- Images List -->
+      <div class="images-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h2>Listado de Imágenes</h2>
+          <button id="refresh-btn" class="btn btn-secondary">🔄 Actualizar</button>
+        </div>
+        
+        <div id="images-grid" class="images-grid">
+          <p style="color: #666; text-align: center; grid-column: 1/-1;">Cargando imágenes...</p>
+        </div>
+        
+        <div id="pagination" class="pagination" style="margin-top: 1rem; display: flex; justify-content: center; gap: 0.5rem;">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="edit-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h3>Editar Imagen</h3>
+      <form id="edit-image-form">
+        <input type="hidden" id="edit-id" />
+        <div class="form-group">
+          <label for="edit-alias">Alias</label>
+          <input type="text" id="edit-alias" name="alias" required />
+        </div>
+        <div class="form-group">
+          <label for="edit-image-file">Nueva Imagen (opcional)</label>
+          <input type="file" id="edit-image-file" accept="image/*" style="padding: 0.5rem;" />
+        </div>
+        <div id="edit-preview" style="margin-bottom: 1rem;">
+          <img id="edit-preview-img" src="" alt="Preview" style="max-width: 200px; max-height: 200px; border-radius: 8px;" />
+        </div>
+        <div style="display: flex; gap: 1rem;">
+          <button type="submit" class="btn btn-primary">💾 Guardar Cambios</button>
+          <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    .create-section {
+      margin-bottom: 2rem;
+    }
+    
+    .images-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1.5rem;
+    }
+    
+    .image-card {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .image-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .image-card img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 0.75rem;
+      background: #e0e0e0;
+    }
+    
+    .image-card h4 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.1rem;
+      color: #333;
+      word-break: break-word;
+    }
+    
+    .image-card .meta {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 0.75rem;
+    }
+    
+    .image-card .actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .image-card .btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+    }
+    
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    .modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    .modal-content h3 {
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+    }
+    
+    .pagination button {
+      padding: 0.5rem 1rem;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #666;
+    }
+    
+    .empty-state .icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+
+  <script>
+    const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+    
+    let currentUser: any = null;
+    let currentPage = 1;
+    const perPage = 12;
+
+    const errorMessage = document.getElementById('error-message') as HTMLDivElement;
+    const successMessage = document.getElementById('success-message') as HTMLDivElement;
+    const imagesGrid = document.getElementById('images-grid') as HTMLDivElement;
+    const paginationDiv = document.getElementById('pagination') as HTMLDivElement;
+    
+    // Form elements
+    const createForm = document.getElementById('create-image-form') as HTMLFormElement;
+    const aliasInput = document.getElementById('alias') as HTMLInputElement;
+    const imageFileInput = document.getElementById('image-file') as HTMLInputElement;
+    const createBtn = document.getElementById('create-btn') as HTMLButtonElement;
+    const refreshBtn = document.getElementById('refresh-btn') as HTMLButtonElement;
+    const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
+    
+    // Edit modal elements
+    const editModal = document.getElementById('edit-modal') as HTMLDivElement;
+    const editForm = document.getElementById('edit-image-form') as HTMLFormElement;
+    const editIdInput = document.getElementById('edit-id') as HTMLInputElement;
+    const editAliasInput = document.getElementById('edit-alias') as HTMLInputElement;
+    const editImageFileInput = document.getElementById('edit-image-file') as HTMLInputElement;
+    const editPreviewImg = document.getElementById('edit-preview-img') as HTMLImageElement;
+    const cancelEditBtn = document.getElementById('cancel-edit-btn') as HTMLButtonElement;
+
+    function showError(message: string) {
+      errorMessage.textContent = message;
+      errorMessage.style.display = 'block';
+      successMessage.style.display = 'none';
+      setTimeout(() => {
+        errorMessage.style.display = 'none';
+      }, 5000);
+    }
+
+    function showSuccess(message: string) {
+      successMessage.textContent = message;
+      successMessage.style.display = 'block';
+      errorMessage.style.display = 'none';
+      setTimeout(() => {
+        successMessage.style.display = 'none';
+      }, 5000);
+    }
+
+    // Check authentication and admin role
+    async function checkAuth() {
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      
+      if (!token || !user) {
+        window.location.href = '/';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          currentUser = data.user;
+          
+          // Check admin role
+          if (!currentUser.admin) {
+            showError('Acceso denegado. Se requiere rol de administrador.');
+            setTimeout(() => {
+              window.location.href = '/dashboard';
+            }, 2000);
+            return;
+          }
+          
+          loadImages();
+        } else {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/';
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        showError('Error de conexión con el servidor');
+      }
+    }
+
+    // Load images
+    async function loadImages(page = 1) {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      currentPage = page;
+
+      try {
+        const response = await fetch(`${API_URL}/api/admin/images?page=${page}&perPage=${perPage}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          renderImages(data.images);
+          renderPagination(data.page, data.totalPages, data.totalItems);
+        } else {
+          const errorData = await response.json();
+          showError(errorData.error || 'Error al cargar imágenes');
+        }
+      } catch (error) {
+        console.error('Error loading images:', error);
+        showError('Error de conexión al cargar imágenes');
+      }
+    }
+
+    // Render images grid
+    function renderImages(images: any[]) {
+      if (images.length === 0) {
+        imagesGrid.innerHTML = `
+          <div class="empty-state" style="grid-column: 1/-1;">
+            <div class="icon">🖼️</div>
+            <h3>No hay imágenes</h3>
+            <p>Crea tu primera imagen usando el formulario de arriba.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Fallback placeholder image as a constant
+      const placeholderImage = 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect fill=%27%23f0f0f0%27 width=%27100%27 height=%27100%27/%3E%3Ctext x=%2750%27 y=%2755%27 text-anchor=%27middle%27 font-size=%2740%27%3E🖼️%3C/text%3E%3C/svg%3E';
+
+      imagesGrid.innerHTML = images.map(image => `
+        <div class="image-card" data-id="${image.id}">
+          <img src="${image.imageUrl}?size=medium" alt="${escapeHtml(image.alias)}" onerror="this.src='${placeholderImage}'" />
+          <h4>${escapeHtml(image.alias)}</h4>
+          <div class="meta">
+            ID: ${image.id}<br>
+            Creado: ${new Date(image.created).toLocaleDateString('es')}
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary edit-btn" data-id="${image.id}">✏️ Editar</button>
+            <button class="btn btn-danger delete-btn" data-id="${image.id}">🗑️ Eliminar</button>
+          </div>
+        </div>
+      `).join('');
+
+      // Attach event listeners
+      document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => openEditModal((btn as HTMLButtonElement).dataset.id!));
+      });
+      
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteImage((btn as HTMLButtonElement).dataset.id!));
+      });
+    }
+
+    // Escape HTML for XSS prevention
+    function escapeHtml(text: string): string {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Render pagination
+    function renderPagination(page: number, totalPages: number, totalItems: number) {
+      if (totalPages <= 1) {
+        paginationDiv.innerHTML = `<span style="color: #666;">Total: ${totalItems} imagen(es)</span>`;
+        return;
+      }
+
+      let html = '';
+      
+      if (page > 1) {
+        html += `<button class="btn btn-secondary page-btn" data-page="${page - 1}">← Anterior</button>`;
+      }
+      
+      html += `<span style="color: #666; padding: 0.5rem;">Página ${page} de ${totalPages} (${totalItems} total)</span>`;
+      
+      if (page < totalPages) {
+        html += `<button class="btn btn-secondary page-btn" data-page="${page + 1}">Siguiente →</button>`;
+      }
+      
+      paginationDiv.innerHTML = html;
+
+      document.querySelectorAll('.page-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          loadImages(parseInt((btn as HTMLButtonElement).dataset.page!));
+        });
+      });
+    }
+
+    // Create image
+    async function createImage(e: Event) {
+      e.preventDefault();
+      
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const alias = aliasInput.value.trim();
+      const file = imageFileInput.files?.[0];
+
+      if (!alias || !file) {
+        showError('Por favor completa todos los campos');
+        return;
+      }
+
+      createBtn.disabled = true;
+      createBtn.textContent = 'Creando...';
+
+      const formData = new FormData();
+      formData.append('alias', alias);
+      formData.append('image', file);
+
+      try {
+        const response = await fetch(`${API_URL}/api/admin/images`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showSuccess('¡Imagen creada exitosamente!');
+          createForm.reset();
+          loadImages(1);
+        } else {
+          showError(data.error || 'Error al crear imagen');
+        }
+      } catch (error) {
+        showError('Error de conexión al crear imagen');
+        console.error('Create error:', error);
+      } finally {
+        createBtn.disabled = false;
+        createBtn.textContent = '➕ Crear Imagen';
+      }
+    }
+
+    // Open edit modal
+    async function openEditModal(imageId: string) {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        const response = await fetch(`${API_URL}/api/admin/images/${imageId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const image = data.image;
+          
+          editIdInput.value = image.id;
+          editAliasInput.value = image.alias;
+          editPreviewImg.src = image.imageUrl ? `${image.imageUrl}?size=medium` : '';
+          editImageFileInput.value = '';
+          
+          editModal.style.display = 'flex';
+        } else {
+          showError('Error al cargar imagen');
+        }
+      } catch (error) {
+        showError('Error de conexión');
+        console.error('Error:', error);
+      }
+    }
+
+    // Close edit modal
+    function closeEditModal() {
+      editModal.style.display = 'none';
+      editForm.reset();
+    }
+
+    // Update image
+    async function updateImage(e: Event) {
+      e.preventDefault();
+      
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const imageId = editIdInput.value;
+      const alias = editAliasInput.value.trim();
+      const file = editImageFileInput.files?.[0];
+
+      if (!alias) {
+        showError('El alias es requerido');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('alias', alias);
+      if (file) {
+        formData.append('image', file);
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/admin/images/${imageId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showSuccess('¡Imagen actualizada exitosamente!');
+          closeEditModal();
+          loadImages(currentPage);
+        } else {
+          showError(data.error || 'Error al actualizar imagen');
+        }
+      } catch (error) {
+        showError('Error de conexión al actualizar imagen');
+        console.error('Update error:', error);
+      }
+    }
+
+    // Delete image
+    async function deleteImage(imageId: string) {
+      if (!confirm('¿Estás seguro de que deseas eliminar esta imagen? Esta acción no se puede deshacer.')) {
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        const response = await fetch(`${API_URL}/api/admin/images/${imageId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showSuccess('Imagen eliminada exitosamente');
+          loadImages(currentPage);
+        } else {
+          showError(data.error || 'Error al eliminar imagen');
+        }
+      } catch (error) {
+        showError('Error de conexión al eliminar imagen');
+        console.error('Delete error:', error);
+      }
+    }
+
+    // Event listeners
+    createForm.addEventListener('submit', createImage);
+    refreshBtn.addEventListener('click', () => loadImages(currentPage));
+    editForm.addEventListener('submit', updateImage);
+    cancelEditBtn.addEventListener('click', closeEditModal);
+    
+    // Close modal on background click
+    editModal.addEventListener('click', (e) => {
+      if (e.target === editModal) {
+        closeEditModal();
+      }
+    });
+
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/';
+    });
+
+    // Initialize
+    checkAuth();
+  </script>
+</Layout>

@@ -59,6 +59,7 @@ docker-compose up -d --build
 - Ve a "Collections" → "Users"
 - Verifica que el campo "avatar" existe (tipo "File")
 - Configura las reglas de acceso según necesidades
+- **Configura la colección "images"** (ver [Crear Colección Images](#crear-colección-images))
 
 5. **Acceder a la aplicación**
 - Frontend: http://localhost:3000
@@ -204,6 +205,53 @@ Authorization: Bearer <token>
 GET /health
 ```
 
+### Gestión de Imágenes (Solo Admin)
+
+#### Crear Imagen
+```http
+POST /api/admin/images
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+Body: 
+- alias (text): Nombre descriptivo de la imagen
+- image (file): Archivo de imagen
+```
+
+#### Listar Imágenes
+```http
+GET /api/admin/images?page=1&perPage=20
+Authorization: Bearer <token>
+```
+
+#### Obtener Imagen
+```http
+GET /api/admin/images/:imageId
+Authorization: Bearer <token>
+```
+
+#### Obtener Archivo de Imagen
+```http
+GET /api/admin/images/:imageId/file?size=small|medium|large|original
+```
+
+#### Actualizar Imagen
+```http
+PUT /api/admin/images/:imageId
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+Body: 
+- alias (text): Nuevo nombre descriptivo
+- image (file, optional): Nueva imagen
+```
+
+#### Eliminar Imagen
+```http
+DELETE /api/admin/images/:imageId
+Authorization: Bearer <token>
+```
+
 ## 🎨 Uso de la Interfaz Web
 
 ### 1. Registro
@@ -332,6 +380,61 @@ PUBLIC_API_URL=http://localhost:3000
    - Update rule: `@request.auth.id = id`
    - Delete rule: `@request.auth.id = id`
 4. **Configura CORS apropiadamente**
+
+### Crear Colección Images
+
+Para habilitar la funcionalidad de gestión de imágenes (solo para administradores), sigue estos pasos para crear la colección "images" en PocketBase:
+
+1. **Accede al Panel de Administración de PocketBase**
+   - Navega a http://localhost:8090/_/
+   - Inicia sesión con tus credenciales de administrador
+
+2. **Crear Nueva Colección**
+   - Click en "New collection"
+   - Nombre: `images`
+   - Tipo: "Base collection"
+
+3. **Agregar Campos**
+   - **alias** (Tipo: Text)
+     - Required: ✓
+     - Descripción: Nombre descriptivo de la imagen
+   - **image** (Tipo: File)
+     - Required: ✓
+     - MIME types: `image/jpeg, image/png, image/gif, image/webp`
+     - Max size: 5242880 (5MB)
+     - Max select: 1
+   - **creator_id** (Tipo: Relation)
+     - Collection: users
+     - Required: ✓
+     - Max select: 1
+
+4. **Configurar Reglas de Acceso (API Rules)**
+   - List rule: `@request.auth.admin = true`
+   - View rule: `@request.auth.admin = true`
+   - Create rule: `@request.auth.admin = true`
+   - Update rule: `@request.auth.admin = true`
+   - Delete rule: `@request.auth.admin = true`
+
+5. **Guardar la Colección**
+   - Click en "Create"
+
+6. **Habilitar Usuario Admin**
+   - Ve a "Collections" → "users"
+   - Edita el usuario que deseas hacer administrador
+   - Asegúrate de que el campo `admin` esté habilitado (true)
+   - Si el campo `admin` no existe, agrégalo como campo Boolean en la colección users
+
+### Agregar Campo Admin a Users
+
+Si el campo `admin` no existe en la colección users:
+
+1. Ve a "Collections" → "users"
+2. Click en el ícono de configuración
+3. Click en "New field"
+4. Tipo: Boolean
+5. Nombre: `admin`
+6. Default value: false
+7. Click en "Create"
 
 ## 🚨 Solución de Problemas
 

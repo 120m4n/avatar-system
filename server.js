@@ -61,6 +61,15 @@ app.use(express.static('frontend/dist'));
 // Almacén en memoria para caché de imágenes
 const imageCache = new Map();
 
+// Helper function to clear cache entries for a specific prefix
+const clearCacheByPrefix = (prefix) => {
+  for (const key of imageCache.keys()) {
+    if (key.startsWith(prefix)) {
+      imageCache.delete(key);
+    }
+  }
+};
+
 // Middleware de autenticación
 const authenticateToken = async (req, res, next) => {
   try {
@@ -160,7 +169,8 @@ app.post('/api/auth/login', async (req, res) => {
         id: authData.record.id,
         name: authData.record.name,
         email: authData.record.email,
-        avatar: authData.record.avatar
+        avatar: authData.record.avatar,
+        admin: authData.record.admin || false
       }
     });
   } catch (error) {
@@ -191,6 +201,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
         name: req.user.name,
         email: req.user.email,
         avatar: req.user.avatar,
+        admin: req.user.admin || false,
         avatarUrl: req.user.avatar 
           ? `/api/users/${req.user.id}/avatar`
           : null
@@ -402,11 +413,7 @@ app.delete('/api/users/:userId/avatar', authenticateToken, async (req, res) => {
       'avatar': null
     });
 
-    imageCache.forEach((value, key) => {
-      if (key.startsWith(userId)) {
-        imageCache.delete(key);
-      }
-    });
+    clearCacheByPrefix(userId);
 
     res.json({
       success: true,
@@ -417,6 +424,313 @@ app.delete('/api/users/:userId/avatar', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error eliminando avatar:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// =====================================
+// ADMIN-ONLY IMAGES CRUD ENDPOINTS
+// =====================================
+
+// Middleware to check admin role
+const requireAdmin = async (req, res, next) => {
+  try {
+    // Check if user exists and has admin privileges
+    // Handle both boolean true and truthy string values
+    const isAdmin = req.user && (req.user.admin === true || req.user.admin === 'true');
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de administrador.' });
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ error: 'Error al verificar permisos de administrador' });
+  }
+};
+
+// Create image (POST /api/admin/images)
+app.post('/api/admin/images', authenticateToken, requireAdmin, upload.single('image'), async (req, res) => {
+  try {
+    const { alias } = req.body;
+
+    if (!alias) {
+      return res.status(400).json({ error: 'El campo alias es requerido' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se proporcionó ninguna imagen' });
+    }
+
+    // Optimize and convert to WEBP
+    const optimizedImage = await sharp(req.file.buffer)
+      .resize(800, 800, {
+        fit: 'inside',
+        withoutEnlargement: true
+      })
+      .webp({ 
+        quality: 80,
+        effort: 6
+      })
+      .toBuffer();
+
+    const formData = new FormData();
+    formData.append('alias', alias);
+    formData.append('creator_id', req.user.id);
+    const blob = new Blob([optimizedImage], { type: 'image/webp' });
+    formData.append('image', blob, `image-${Date.now()}.webp`);
+
+    const image = await pb.collection('images').create(formData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Imagen creada exitosamente',
+      image: {
+        id: image.id,
+        alias: image.alias,
+        image: image.image,
+        creator_id: image.creator_id,
+        created: image.created
+      }
+    });
+  } catch (error) {
+    console.error('Error creando imagen:', error);
+    res.status(500).json({ 
+      error: 'Error al crear imagen',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Get all images (GET /api/admin/images)
+app.get('/api/admin/images', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { page = 1, perPage = 20 } = req.query;
+    const baseUrl = process.env.PUBLIC_API_URL || `http://localhost:${port}`;
+    
+    const images = await pb.collection('images').getList(parseInt(page), parseInt(perPage), {
+      sort: '-created'
+    });
+
+    const imagesWithUrls = images.items.map(image => ({
+      id: image.id,
+      alias: image.alias,
+      image: image.image,
+      creator_id: image.creator_id,
+      created: image.created,
+      updated: image.updated,
+      imageUrl: image.image 
+        ? `${baseUrl}/api/admin/images/${image.id}/file`
+        : null
+    }));
+
+    res.json({
+      success: true,
+      images: imagesWithUrls,
+      page: images.page,
+      perPage: images.perPage,
+      totalPages: images.totalPages,
+      totalItems: images.totalItems
+    });
+  } catch (error) {
+    console.error('Error obteniendo imágenes:', error);
+    res.status(500).json({ error: 'Error al obtener imágenes' });
+  }
+});
+
+// Get single image (GET /api/admin/images/:imageId)
+app.get('/api/admin/images/:imageId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { imageId } = req.params;
+    const baseUrl = process.env.PUBLIC_API_URL || `http://localhost:${port}`;
+    
+    const image = await pb.collection('images').getOne(imageId);
+
+    res.json({
+      success: true,
+      image: {
+        id: image.id,
+        alias: image.alias,
+        image: image.image,
+        creator_id: image.creator_id,
+        created: image.created,
+        updated: image.updated,
+        imageUrl: image.image 
+          ? `${baseUrl}/api/admin/images/${image.id}/file`
+          : null
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo imagen:', error);
+    if (error.status === 404) {
+      return res.status(404).json({ error: 'Imagen no encontrada' });
+    }
+    res.status(500).json({ error: 'Error al obtener imagen' });
+  }
+});
+
+// Get image file (GET /api/admin/images/:imageId/file)
+// Note: This endpoint is public to allow images to be displayed via <img> tags
+// The image IDs are unique and hard to guess, providing security through obscurity
+// This is consistent with the avatar endpoint pattern
+app.get('/api/admin/images/:imageId/file', async (req, res) => {
+  try {
+    const { imageId } = req.params;
+    const { size = 'medium' } = req.query;
+
+    const cacheKey = `image-${imageId}-${size}`;
+    if (imageCache.has(cacheKey)) {
+      const cached = imageCache.get(cacheKey);
+      res.set({
+        'Content-Type': 'image/webp',
+        'Content-Length': cached.length,
+        'Cache-Control': 'public, max-age=86400',
+        'X-Cache': 'HIT'
+      });
+      return res.send(cached);
+    }
+
+    const image = await pb.collection('images').getOne(imageId, {
+      fields: 'id,image,collectionId'
+    });
+
+    if (!image.image) {
+      return res.status(404).json({ error: 'Archivo de imagen no encontrado' });
+    }
+
+    const baseUrl = process.env.POCKETBASE_URL || 'http://localhost:8090';
+    const imageUrl = `${baseUrl}/api/files/${image.collectionId}/${image.id}/${image.image}`;
+    
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error('No se pudo obtener la imagen de PocketBase');
+    }
+
+    const imageBuffer = await response.arrayBuffer();
+    let processedImage = Buffer.from(imageBuffer);
+
+    const sizes = {
+      small: 100,
+      medium: 300,
+      large: 600,
+      original: null
+    };
+
+    const targetSize = sizes[size] || sizes.medium;
+
+    if (targetSize) {
+      const sharpInstance = sharp(processedImage);
+      processedImage = await sharpInstance
+        .resize(targetSize, targetSize, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .webp({ quality: 80 })
+        .toBuffer();
+    }
+
+    imageCache.set(cacheKey, processedImage);
+
+    res.set({
+      'Content-Type': 'image/webp',
+      'Content-Length': processedImage.length,
+      'Cache-Control': 'public, max-age=86400',
+      'X-Cache': 'MISS'
+    });
+    res.send(processedImage);
+
+  } catch (error) {
+    console.error('Error obteniendo archivo de imagen:', error);
+    
+    if (error.status === 404) {
+      return res.status(404).json({ error: 'Imagen no encontrada' });
+    }
+    
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Update image (PUT /api/admin/images/:imageId)
+app.put('/api/admin/images/:imageId', authenticateToken, requireAdmin, upload.single('image'), async (req, res) => {
+  try {
+    const { imageId } = req.params;
+    const { alias } = req.body;
+
+    // Verify image exists (throws 404 if not found)
+    await pb.collection('images').getOne(imageId);
+
+    const formData = new FormData();
+    
+    if (alias) {
+      formData.append('alias', alias);
+    }
+
+    if (req.file) {
+      // Optimize and convert to WEBP
+      const optimizedImage = await sharp(req.file.buffer)
+        .resize(800, 800, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .webp({ 
+          quality: 80,
+          effort: 6
+        })
+        .toBuffer();
+
+      const blob = new Blob([optimizedImage], { type: 'image/webp' });
+      formData.append('image', blob, `image-${Date.now()}.webp`);
+      
+      // Clear cache for this image
+      clearCacheByPrefix(`image-${imageId}`);
+    }
+
+    const updatedImage = await pb.collection('images').update(imageId, formData);
+
+    res.json({
+      success: true,
+      message: 'Imagen actualizada exitosamente',
+      image: {
+        id: updatedImage.id,
+        alias: updatedImage.alias,
+        image: updatedImage.image,
+        creator_id: updatedImage.creator_id,
+        updated: updatedImage.updated
+      }
+    });
+  } catch (error) {
+    console.error('Error actualizando imagen:', error);
+    if (error.status === 404) {
+      return res.status(404).json({ error: 'Imagen no encontrada' });
+    }
+    res.status(500).json({ 
+      error: 'Error al actualizar imagen',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Delete image (DELETE /api/admin/images/:imageId)
+app.delete('/api/admin/images/:imageId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { imageId } = req.params;
+
+    // Delete from PocketBase (will throw 404 if not found)
+    await pb.collection('images').delete(imageId);
+
+    // Clear cache for this image
+    clearCacheByPrefix(`image-${imageId}`);
+
+    res.json({
+      success: true,
+      message: 'Imagen eliminada exitosamente'
+    });
+  } catch (error) {
+    console.error('Error eliminando imagen:', error);
+    if (error.status === 404) {
+      return res.status(404).json({ error: 'Imagen no encontrada' });
+    }
+    res.status(500).json({ error: 'Error al eliminar imagen' });
   }
 });
 
