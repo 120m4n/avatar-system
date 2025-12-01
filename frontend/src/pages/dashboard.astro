@@ -86,8 +86,8 @@ import Layout from '../layouts/Layout.astro';
   </div>
 
   <script>
-    // Cropper.js v2.x uses Web Components with Shadow DOM - no CSS import needed
     import Cropper from 'cropperjs';
+    import 'cropperjs/dist/cropper.css';
 
     const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
     
@@ -242,12 +242,13 @@ import Layout from '../layouts/Layout.astro';
         if (cropper) {
           cropper.destroy();
         }
-        // Type assertion needed due to incomplete v2.x TypeScript definitions
         cropper = new Cropper(cropperImage, {
           aspectRatio: 1,
           viewMode: 1,
           autoCropArea: 1,
-        } as any);
+          responsive: true,
+          background: false,
+        });
       };
     }
 
@@ -363,22 +364,17 @@ import Layout from '../layouts/Layout.astro';
 
     confirmCropBtn.addEventListener('click', () => {
       if (cropper) {
-        // Type assertion needed due to incomplete v2.x TypeScript definitions
-        const croppedCanvas = (cropper as any).getCroppedCanvas({
+        cropper.getCroppedCanvas({
           width: 400,
           height: 400,
           imageSmoothingEnabled: true,
           imageSmoothingQuality: 'high',
-        });
-        
-        if (croppedCanvas) {
-          croppedCanvas.toBlob(async (blob: Blob | null) => {
-            if (blob) {
-              closeCropper();
-              await uploadAvatar(blob);
-            }
-          }, 'image/jpeg', 0.9);
-        }
+        }).toBlob(async (blob) => {
+          if (blob) {
+            closeCropper();
+            await uploadAvatar(blob);
+          }
+        }, 'image/jpeg', 0.9);
       }
     });
 
