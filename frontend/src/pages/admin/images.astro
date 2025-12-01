@@ -280,6 +280,8 @@ import Layout from '../../layouts/Layout.astro';
     let cameraStream: MediaStream | null = null;
     let capturedBlob: Blob | null = null;
     let cameraTarget: 'create' | 'edit' = 'create';
+    let createHasCameraCapture = false;
+    let editHasCameraCapture = false;
 
     function showError(message: string) {
       errorMessage.textContent = message;
@@ -401,14 +403,14 @@ import Layout from '../../layouts/Layout.astro';
         // Show preview in create form
         createCapturedImage.src = URL.createObjectURL(capturedBlob);
         createCameraPreview.style.display = 'block';
+        createHasCameraCapture = true;
         // Clear file input since we're using camera capture
         imageFileInput.value = '';
-        // Remove required from file input as we have a camera capture
-        imageFileInput.removeAttribute('required');
       } else {
         // Show preview in edit form
         editCapturedImage.src = URL.createObjectURL(capturedBlob);
         editCameraPreview.style.display = 'block';
+        editHasCameraCapture = true;
         // Clear file input since we're using camera capture
         editImageFileInput.value = '';
       }
@@ -420,12 +422,12 @@ import Layout from '../../layouts/Layout.astro';
       if (target === 'create') {
         createCameraPreview.style.display = 'none';
         createCapturedImage.src = '';
+        createHasCameraCapture = false;
         capturedBlob = null;
-        // Restore required attribute
-        imageFileInput.setAttribute('required', '');
       } else {
         editCameraPreview.style.display = 'none';
         editCapturedImage.src = '';
+        editHasCameraCapture = false;
         capturedBlob = null;
       }
     }
@@ -588,9 +590,8 @@ import Layout from '../../layouts/Layout.astro';
       
       // Check if we have a camera capture or file
       const hasFile = file !== undefined;
-      const hasCameraCapture = createCameraPreview.style.display !== 'none' && capturedBlob !== null;
 
-      if (!alias || (!hasFile && !hasCameraCapture)) {
+      if (!alias || (!hasFile && !createHasCameraCapture)) {
         showError('Por favor completa todos los campos');
         return;
       }
@@ -601,7 +602,7 @@ import Layout from '../../layouts/Layout.astro';
       const formData = new FormData();
       formData.append('alias', alias);
       
-      if (hasCameraCapture && capturedBlob) {
+      if (createHasCameraCapture && capturedBlob) {
         // Use camera capture
         formData.append('image', capturedBlob, 'camera-capture.jpg');
       } else if (file) {
@@ -688,9 +689,6 @@ import Layout from '../../layouts/Layout.astro';
       const imageId = editIdInput.value;
       const alias = editAliasInput.value.trim();
       const file = editImageFileInput.files?.[0];
-      
-      // Check if we have a camera capture
-      const hasCameraCapture = editCameraPreview.style.display !== 'none' && capturedBlob !== null;
 
       if (!alias) {
         showError('El alias es requerido');
@@ -700,7 +698,7 @@ import Layout from '../../layouts/Layout.astro';
       const formData = new FormData();
       formData.append('alias', alias);
       
-      if (hasCameraCapture && capturedBlob) {
+      if (editHasCameraCapture && capturedBlob) {
         // Use camera capture
         formData.append('image', capturedBlob, 'camera-capture.jpg');
       } else if (file) {
