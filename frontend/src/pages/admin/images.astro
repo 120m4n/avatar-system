@@ -123,6 +123,20 @@ import Layout from '../../layouts/Layout.astro';
     </div>
   </div>
 
+  <!-- Cropper Modal -->
+  <div id="cropper-modal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+      <h3>✂️ Recortar Imagen</h3>
+      <div id="cropper-container" style="margin-bottom: 1rem;">
+        <img id="cropper-image" src="" alt="Imagen a recortar" style="max-width: 100%; display: block;" />
+      </div>
+      <div style="display: flex; gap: 1rem; justify-content: center;">
+        <button type="button" id="crop-btn" class="btn btn-primary">✓ Aplicar Recorte</button>
+        <button type="button" id="cancel-crop-btn" class="btn btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <style>
     .create-section {
       margin-bottom: 2rem;
@@ -221,9 +235,22 @@ import Layout from '../../layouts/Layout.astro';
       font-size: 4rem;
       margin-bottom: 1rem;
     }
+    
+    /* Cropper styles */
+    #cropper-container {
+      max-height: 500px;
+      overflow: hidden;
+    }
+    
+    .cropper-container {
+      max-height: 400px;
+    }
   </style>
 
   <script>
+    import Cropper from 'cropperjs';
+    import 'cropperjs/dist/cropper.css';
+    
     const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
     
     let currentUser: any = null;
@@ -276,6 +303,12 @@ import Layout from '../../layouts/Layout.astro';
     const editCapturedImage = document.getElementById('edit-captured-image') as HTMLImageElement;
     const editClearCaptureBtn = document.getElementById('edit-clear-capture-btn') as HTMLButtonElement;
     
+    // Cropper elements
+    const cropperModal = document.getElementById('cropper-modal') as HTMLDivElement;
+    const cropperImage = document.getElementById('cropper-image') as HTMLImageElement;
+    const cropBtn = document.getElementById('crop-btn') as HTMLButtonElement;
+    const cancelCropBtn = document.getElementById('cancel-crop-btn') as HTMLButtonElement;
+    
     // Camera state
     let cameraStream: MediaStream | null = null;
     let capturedBlob: Blob | null = null;
@@ -285,6 +318,15 @@ import Layout from '../../layouts/Layout.astro';
     // Persistent blobs for each form (not cleared by closeCamera)
     let createCapturedBlob: Blob | null = null;
     let editCapturedBlob: Blob | null = null;
+    
+    // Cropper state
+    let cropper: any = null;
+    let cropperTarget: 'create' | 'edit' = 'create';
+    let createCroppedBlob: Blob | null = null;
+    let editCroppedBlob: Blob | null = null;
+    let createHasCrop = false;
+    let editHasCrop = false;
+    let croppingInProgress = false;
 
     function showError(message: string) {
       errorMessage.textContent = message;
@@ -431,12 +473,86 @@ import Layout from '../../layouts/Layout.astro';
         createCapturedImage.src = '';
         createHasCameraCapture = false;
         createCapturedBlob = null;
+        createHasCrop = false;
+        createCroppedBlob = null;
       } else {
         editCameraPreview.style.display = 'none';
         editCapturedImage.src = '';
         editHasCameraCapture = false;
         editCapturedBlob = null;
+        editHasCrop = false;
+        editCroppedBlob = null;
       }
+    }
+
+    // Cropper functions
+    async function openCropper(file: File, target: 'create' | 'edit') {
+      cropperTarget = target;
+      croppingInProgress = true;
+      const url = URL.createObjectURL(file);
+      cropperImage.src = url;
+      cropperModal.style.display = 'flex';
+      
+      // Wait for image to load
+      await new Promise(resolve => cropperImage.onload = resolve);
+      
+      // Initialize cropper
+      cropper = new Cropper(cropperImage, {
+        aspectRatio: 1, // Square
+        viewMode: 1,
+        responsive: true,
+        restore: false,
+        checkCrossOrigin: false,
+        checkOrientation: false,
+        modal: true,
+        guides: true,
+        center: true,
+        highlight: false,
+        background: false,
+        autoCropArea: 0.8,
+        toggleDragModeOnDblclick: false,
+      });
+    }
+
+    function closeCropper() {
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+      cropperModal.style.display = 'none';
+      URL.revokeObjectURL(cropperImage.src);
+      cropperImage.src = '';
+      
+      if (croppingInProgress) {
+        if (cropperTarget === 'create') {
+          imageFileInput.value = '';
+        } else {
+          editImageFileInput.value = '';
+        }
+        croppingInProgress = false;
+      }
+    }
+
+    function applyCrop() {
+      if (!cropper) return;
+      
+      cropper.getCroppedCanvas().toBlob((blob: Blob) => {
+        if (blob) {
+          if (cropperTarget === 'create') {
+            createCroppedBlob = blob;
+            createHasCrop = true;
+            // Clear camera if any
+            clearCameraCapture('create');
+          } else {
+            editCroppedBlob = blob;
+            editHasCrop = true;
+            // Clear camera if any
+            clearCameraCapture('edit');
+          }
+        }
+        croppingInProgress = false;
+        closeCropper();
+      }, 'image/jpeg', 0.9);
     }
 
     // Check authentication and admin role
@@ -595,10 +711,10 @@ import Layout from '../../layouts/Layout.astro';
       const alias = aliasInput.value.trim();
       const file = imageFileInput.files?.[0];
       
-      // Check if we have a camera capture or file
+      // Check if we have a camera capture, crop, or file
       const hasFile = file !== undefined;
 
-      if (!alias || (!hasFile && !createHasCameraCapture)) {
+      if (!alias || (!hasFile && !createHasCameraCapture && !createHasCrop)) {
         showError('Por favor completa todos los campos');
         return;
       }
@@ -609,11 +725,14 @@ import Layout from '../../layouts/Layout.astro';
       const formData = new FormData();
       formData.append('alias', alias);
       
-      if (createHasCameraCapture && createCapturedBlob) {
+      if (createHasCrop && createCroppedBlob) {
+        // Use cropped image
+        formData.append('image', createCroppedBlob, 'cropped-image.jpg');
+      } else if (createHasCameraCapture && createCapturedBlob) {
         // Use camera capture
         formData.append('image', createCapturedBlob, 'camera-capture.jpg');
       } else if (file) {
-        // Use file input
+        // Use file input (fallback)
         formData.append('image', file);
       }
 
@@ -631,7 +750,7 @@ import Layout from '../../layouts/Layout.astro';
         if (response.ok) {
           showSuccess('¡Imagen creada exitosamente!');
           createForm.reset();
-          // Clear camera capture preview
+          // Clear camera capture and crop preview
           clearCameraCapture('create');
           loadImages(1);
         } else {
@@ -681,7 +800,7 @@ import Layout from '../../layouts/Layout.astro';
     function closeEditModal() {
       editModal.style.display = 'none';
       editForm.reset();
-      // Clear camera capture for edit
+      // Clear camera capture and crop for edit
       clearCameraCapture('edit');
     }
 
@@ -704,10 +823,14 @@ import Layout from '../../layouts/Layout.astro';
       const formData = new FormData();
       formData.append('alias', alias);
       
-      if (editHasCameraCapture && editCapturedBlob) {
+      if (editHasCrop && editCroppedBlob) {
+        // Use cropped image
+        formData.append('image', editCroppedBlob, 'cropped-image.jpg');
+      } else if (editHasCameraCapture && editCapturedBlob) {
         // Use camera capture
         formData.append('image', editCapturedBlob, 'camera-capture.jpg');
       } else if (file) {
+        // Use file input (fallback)
         formData.append('image', file);
       }
 
@@ -793,6 +916,32 @@ import Layout from '../../layouts/Layout.astro';
     cameraModal.addEventListener('click', (e) => {
       if (e.target === cameraModal) {
         closeCamera();
+      }
+    });
+
+    // File input event listeners for cropping
+    imageFileInput.addEventListener('change', (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file && file.type.startsWith('image/')) {
+        openCropper(file, 'create');
+      }
+    });
+    
+    editImageFileInput.addEventListener('change', (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file && file.type.startsWith('image/')) {
+        openCropper(file, 'edit');
+      }
+    });
+    
+    // Cropper event listeners
+    cropBtn.addEventListener('click', applyCrop);
+    cancelCropBtn.addEventListener('click', closeCropper);
+    
+    // Close cropper modal on background click
+    cropperModal.addEventListener('click', (e) => {
+      if (e.target === cropperModal) {
+        closeCropper();
       }
     });
 
