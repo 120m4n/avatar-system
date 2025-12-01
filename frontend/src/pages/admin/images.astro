@@ -28,12 +28,23 @@ import Layout from '../../layouts/Layout.astro';
           </div>
           <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
             <label for="image-file">Imagen</label>
-            <input type="file" id="image-file" accept="image/*" required style="padding: 0.5rem;" />
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <input type="file" id="image-file" accept="image/*" style="padding: 0.5rem; flex: 1;" />
+              <button type="button" id="open-camera-btn" class="btn btn-secondary" title="Usar Cámara">
+                📷
+              </button>
+            </div>
           </div>
           <button type="submit" class="btn btn-primary" id="create-btn">
             ➕ Crear Imagen
           </button>
         </form>
+        <!-- Camera preview for create form -->
+        <div id="create-camera-preview" style="display: none; margin-top: 1rem;">
+          <p style="color: #666; font-size: 0.9rem;">📷 Imagen capturada:</p>
+          <img id="create-captured-image" src="" alt="Captura" style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 2px solid #667eea;" />
+          <button type="button" id="clear-capture-btn" class="btn btn-secondary" style="margin-left: 0.5rem; padding: 0.3rem 0.6rem;">✕ Quitar</button>
+        </div>
       </div>
       
       <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e0e0e0;" />
@@ -67,16 +78,48 @@ import Layout from '../../layouts/Layout.astro';
         </div>
         <div class="form-group">
           <label for="edit-image-file">Nueva Imagen (opcional)</label>
-          <input type="file" id="edit-image-file" accept="image/*" style="padding: 0.5rem;" />
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="file" id="edit-image-file" accept="image/*" style="padding: 0.5rem; flex: 1;" />
+            <button type="button" id="open-edit-camera-btn" class="btn btn-secondary" title="Usar Cámara">
+              📷
+            </button>
+          </div>
         </div>
         <div id="edit-preview" style="margin-bottom: 1rem;">
           <img id="edit-preview-img" src="" alt="Preview" style="max-width: 200px; max-height: 200px; border-radius: 8px;" />
+        </div>
+        <!-- Camera preview for edit form -->
+        <div id="edit-camera-preview" style="display: none; margin-bottom: 1rem;">
+          <p style="color: #666; font-size: 0.9rem;">📷 Imagen capturada:</p>
+          <img id="edit-captured-image" src="" alt="Captura" style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 2px solid #667eea;" />
+          <button type="button" id="edit-clear-capture-btn" class="btn btn-secondary" style="margin-left: 0.5rem; padding: 0.3rem 0.6rem;">✕ Quitar</button>
         </div>
         <div style="display: flex; gap: 1rem;">
           <button type="submit" class="btn btn-primary">💾 Guardar Cambios</button>
           <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Cancelar</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Camera Modal -->
+  <div id="camera-modal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+      <h3>📷 Capturar Imagen</h3>
+      <div id="camera-error" class="error" style="display: none;"></div>
+      <div id="camera-container" style="position: relative; margin-bottom: 1rem;">
+        <video id="camera-video" autoplay playsinline style="width: 100%; border-radius: 8px; background: #000;"></video>
+        <canvas id="camera-canvas" style="display: none;"></canvas>
+      </div>
+      <div id="camera-captured-container" style="display: none; margin-bottom: 1rem; text-align: center;">
+        <img id="camera-captured-preview" src="" alt="Captura" style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 2px solid #667eea;" />
+      </div>
+      <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        <button type="button" id="capture-btn" class="btn btn-primary">📸 Capturar</button>
+        <button type="button" id="retake-btn" class="btn btn-secondary" style="display: none;">🔄 Volver a tomar</button>
+        <button type="button" id="use-capture-btn" class="btn btn-primary" style="display: none;">✓ Usar esta foto</button>
+        <button type="button" id="cancel-camera-btn" class="btn btn-secondary">Cancelar</button>
+      </div>
     </div>
   </div>
 
@@ -209,6 +252,35 @@ import Layout from '../../layouts/Layout.astro';
     const editPreviewImg = document.getElementById('edit-preview-img') as HTMLImageElement;
     const cancelEditBtn = document.getElementById('cancel-edit-btn') as HTMLButtonElement;
 
+    // Camera elements
+    const openCameraBtn = document.getElementById('open-camera-btn') as HTMLButtonElement;
+    const openEditCameraBtn = document.getElementById('open-edit-camera-btn') as HTMLButtonElement;
+    const cameraModal = document.getElementById('camera-modal') as HTMLDivElement;
+    const cameraVideo = document.getElementById('camera-video') as HTMLVideoElement;
+    const cameraCanvas = document.getElementById('camera-canvas') as HTMLCanvasElement;
+    const cameraError = document.getElementById('camera-error') as HTMLDivElement;
+    const cameraCapturedContainer = document.getElementById('camera-captured-container') as HTMLDivElement;
+    const cameraCapturedPreview = document.getElementById('camera-captured-preview') as HTMLImageElement;
+    const captureBtn = document.getElementById('capture-btn') as HTMLButtonElement;
+    const retakeBtn = document.getElementById('retake-btn') as HTMLButtonElement;
+    const useCaptureBtn = document.getElementById('use-capture-btn') as HTMLButtonElement;
+    const cancelCameraBtn = document.getElementById('cancel-camera-btn') as HTMLButtonElement;
+    
+    // Create camera preview elements
+    const createCameraPreview = document.getElementById('create-camera-preview') as HTMLDivElement;
+    const createCapturedImage = document.getElementById('create-captured-image') as HTMLImageElement;
+    const clearCaptureBtn = document.getElementById('clear-capture-btn') as HTMLButtonElement;
+    
+    // Edit camera preview elements
+    const editCameraPreview = document.getElementById('edit-camera-preview') as HTMLDivElement;
+    const editCapturedImage = document.getElementById('edit-captured-image') as HTMLImageElement;
+    const editClearCaptureBtn = document.getElementById('edit-clear-capture-btn') as HTMLButtonElement;
+    
+    // Camera state
+    let cameraStream: MediaStream | null = null;
+    let capturedBlob: Blob | null = null;
+    let cameraTarget: 'create' | 'edit' = 'create';
+
     function showError(message: string) {
       errorMessage.textContent = message;
       errorMessage.style.display = 'block';
@@ -225,6 +297,137 @@ import Layout from '../../layouts/Layout.astro';
       setTimeout(() => {
         successMessage.style.display = 'none';
       }, 5000);
+    }
+
+    // Camera functions
+    async function openCamera(target: 'create' | 'edit') {
+      cameraTarget = target;
+      capturedBlob = null;
+      cameraError.style.display = 'none';
+      cameraCapturedContainer.style.display = 'none';
+      cameraVideo.style.display = 'block';
+      captureBtn.style.display = 'inline-block';
+      retakeBtn.style.display = 'none';
+      useCaptureBtn.style.display = 'none';
+
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          } 
+        });
+        cameraVideo.srcObject = cameraStream;
+        cameraModal.style.display = 'flex';
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        cameraError.textContent = 'No se pudo acceder a la cámara. Asegúrate de permitir el acceso.';
+        cameraError.style.display = 'block';
+        cameraModal.style.display = 'flex';
+      }
+    }
+
+    function stopCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      cameraVideo.srcObject = null;
+    }
+
+    function closeCamera() {
+      stopCamera();
+      cameraModal.style.display = 'none';
+      capturedBlob = null;
+    }
+
+    function capturePhoto() {
+      if (!cameraStream) return;
+
+      const context = cameraCanvas.getContext('2d');
+      if (!context) return;
+
+      // Set canvas dimensions to match video
+      cameraCanvas.width = cameraVideo.videoWidth;
+      cameraCanvas.height = cameraVideo.videoHeight;
+      
+      // Draw video frame to canvas
+      context.drawImage(cameraVideo, 0, 0);
+      
+      // Convert to blob
+      cameraCanvas.toBlob((blob) => {
+        if (blob) {
+          capturedBlob = blob;
+          cameraCapturedPreview.src = URL.createObjectURL(blob);
+          cameraCapturedContainer.style.display = 'block';
+          cameraVideo.style.display = 'none';
+          captureBtn.style.display = 'none';
+          retakeBtn.style.display = 'inline-block';
+          useCaptureBtn.style.display = 'inline-block';
+          stopCamera();
+        }
+      }, 'image/jpeg', 0.9);
+    }
+
+    async function retakePhoto() {
+      capturedBlob = null;
+      cameraCapturedContainer.style.display = 'none';
+      cameraVideo.style.display = 'block';
+      captureBtn.style.display = 'inline-block';
+      retakeBtn.style.display = 'none';
+      useCaptureBtn.style.display = 'none';
+      
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          } 
+        });
+        cameraVideo.srcObject = cameraStream;
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        cameraError.textContent = 'No se pudo acceder a la cámara.';
+        cameraError.style.display = 'block';
+      }
+    }
+
+    function useCapturedPhoto() {
+      if (!capturedBlob) return;
+
+      if (cameraTarget === 'create') {
+        // Show preview in create form
+        createCapturedImage.src = URL.createObjectURL(capturedBlob);
+        createCameraPreview.style.display = 'block';
+        // Clear file input since we're using camera capture
+        imageFileInput.value = '';
+        // Remove required from file input as we have a camera capture
+        imageFileInput.removeAttribute('required');
+      } else {
+        // Show preview in edit form
+        editCapturedImage.src = URL.createObjectURL(capturedBlob);
+        editCameraPreview.style.display = 'block';
+        // Clear file input since we're using camera capture
+        editImageFileInput.value = '';
+      }
+
+      closeCamera();
+    }
+
+    function clearCameraCapture(target: 'create' | 'edit') {
+      if (target === 'create') {
+        createCameraPreview.style.display = 'none';
+        createCapturedImage.src = '';
+        capturedBlob = null;
+        // Restore required attribute
+        imageFileInput.setAttribute('required', '');
+      } else {
+        editCameraPreview.style.display = 'none';
+        editCapturedImage.src = '';
+        capturedBlob = null;
+      }
     }
 
     // Check authentication and admin role
@@ -382,8 +585,12 @@ import Layout from '../../layouts/Layout.astro';
 
       const alias = aliasInput.value.trim();
       const file = imageFileInput.files?.[0];
+      
+      // Check if we have a camera capture or file
+      const hasFile = file !== undefined;
+      const hasCameraCapture = createCameraPreview.style.display !== 'none' && capturedBlob !== null;
 
-      if (!alias || !file) {
+      if (!alias || (!hasFile && !hasCameraCapture)) {
         showError('Por favor completa todos los campos');
         return;
       }
@@ -393,7 +600,14 @@ import Layout from '../../layouts/Layout.astro';
 
       const formData = new FormData();
       formData.append('alias', alias);
-      formData.append('image', file);
+      
+      if (hasCameraCapture && capturedBlob) {
+        // Use camera capture
+        formData.append('image', capturedBlob, 'camera-capture.jpg');
+      } else if (file) {
+        // Use file input
+        formData.append('image', file);
+      }
 
       try {
         const response = await fetch(`${API_URL}/api/admin/images`, {
@@ -409,6 +623,9 @@ import Layout from '../../layouts/Layout.astro';
         if (response.ok) {
           showSuccess('¡Imagen creada exitosamente!');
           createForm.reset();
+          // Clear camera capture preview
+          clearCameraCapture('create');
+          capturedBlob = null;
           loadImages(1);
         } else {
           showError(data.error || 'Error al crear imagen');
@@ -457,6 +674,8 @@ import Layout from '../../layouts/Layout.astro';
     function closeEditModal() {
       editModal.style.display = 'none';
       editForm.reset();
+      // Clear camera capture for edit
+      clearCameraCapture('edit');
     }
 
     // Update image
@@ -469,6 +688,9 @@ import Layout from '../../layouts/Layout.astro';
       const imageId = editIdInput.value;
       const alias = editAliasInput.value.trim();
       const file = editImageFileInput.files?.[0];
+      
+      // Check if we have a camera capture
+      const hasCameraCapture = editCameraPreview.style.display !== 'none' && capturedBlob !== null;
 
       if (!alias) {
         showError('El alias es requerido');
@@ -477,7 +699,11 @@ import Layout from '../../layouts/Layout.astro';
 
       const formData = new FormData();
       formData.append('alias', alias);
-      if (file) {
+      
+      if (hasCameraCapture && capturedBlob) {
+        // Use camera capture
+        formData.append('image', capturedBlob, 'camera-capture.jpg');
+      } else if (file) {
         formData.append('image', file);
       }
 
@@ -495,6 +721,7 @@ import Layout from '../../layouts/Layout.astro';
         if (response.ok) {
           showSuccess('¡Imagen actualizada exitosamente!');
           closeEditModal();
+          capturedBlob = null;
           loadImages(currentPage);
         } else {
           showError(data.error || 'Error al actualizar imagen');
@@ -546,6 +773,23 @@ import Layout from '../../layouts/Layout.astro';
     editModal.addEventListener('click', (e) => {
       if (e.target === editModal) {
         closeEditModal();
+      }
+    });
+
+    // Camera event listeners
+    openCameraBtn.addEventListener('click', () => openCamera('create'));
+    openEditCameraBtn.addEventListener('click', () => openCamera('edit'));
+    captureBtn.addEventListener('click', capturePhoto);
+    retakeBtn.addEventListener('click', retakePhoto);
+    useCaptureBtn.addEventListener('click', useCapturedPhoto);
+    cancelCameraBtn.addEventListener('click', closeCamera);
+    clearCaptureBtn.addEventListener('click', () => clearCameraCapture('create'));
+    editClearCaptureBtn.addEventListener('click', () => clearCameraCapture('edit'));
+    
+    // Close camera modal on background click
+    cameraModal.addEventListener('click', (e) => {
+      if (e.target === cameraModal) {
+        closeCamera();
       }
     });
 
