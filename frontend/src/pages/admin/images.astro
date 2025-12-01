@@ -304,8 +304,6 @@ import Layout from '../../layouts/Layout.astro';
     let cameraStream: MediaStream | null = null;
     let capturedBlob: Blob | null = null;
     let cameraTarget: 'create' | 'edit' = 'create';
-    let createHasCameraCapture = false;
-    let editHasCameraCapture = false;
     // Persistent blobs for each form (not cleared by closeCamera)
     let createCapturedBlob: Blob | null = null;
     let editCapturedBlob: Blob | null = null;
@@ -440,7 +438,6 @@ import Layout from '../../layouts/Layout.astro';
         }
         createCameraPreview.style.display = 'none';
         createCapturedImage.src = '';
-        createHasCameraCapture = false;
         createCapturedBlob = null;
       } else {
         // Clean up blob URL
@@ -449,7 +446,6 @@ import Layout from '../../layouts/Layout.astro';
         }
         editCameraPreview.style.display = 'none';
         editCapturedImage.src = '';
-        editHasCameraCapture = false;
         editCapturedBlob = null;
       }
     }
@@ -508,13 +504,11 @@ import Layout from '../../layouts/Layout.astro';
             createCapturedBlob = blob;
             createCapturedImage.src = URL.createObjectURL(blob);
             createCameraPreview.style.display = 'block';
-            createHasCameraCapture = true;
             imageFileInput.value = '';
           } else {
             editCapturedBlob = blob;
             editCapturedImage.src = URL.createObjectURL(blob);
             editCameraPreview.style.display = 'block';
-            editHasCameraCapture = true;
             editImageFileInput.value = '';
           }
         }
@@ -678,15 +672,15 @@ import Layout from '../../layouts/Layout.astro';
       const file = imageFileInput.files?.[0];
       
       // If file is selected but not yet cropped, open cropper first
-      if (file && !createHasCameraCapture) {
+      if (file && !createCapturedBlob) {
         cameraTarget = 'create';
         const url = URL.createObjectURL(file);
         openCropper(url);
         return;
       }
       
-      // Check if we have a camera capture
-      if (!alias || !createHasCameraCapture) {
+      // Check if we have a cropped image
+      if (!alias || !createCapturedBlob) {
         showError('Por favor completa todos los campos');
         return;
       }
@@ -697,10 +691,8 @@ import Layout from '../../layouts/Layout.astro';
       const formData = new FormData();
       formData.append('alias', alias);
       
-      if (createCapturedBlob) {
-        // Use cropped image
-        formData.append('image', createCapturedBlob, 'image.jpg');
-      }
+      // Use cropped image
+      formData.append('image', createCapturedBlob, 'image.jpg');
 
       try {
         const response = await fetch(`${API_URL}/api/admin/images`, {
@@ -787,7 +779,7 @@ import Layout from '../../layouts/Layout.astro';
       }
 
       // If file is selected but not yet cropped, open cropper first
-      if (file && !editHasCameraCapture) {
+      if (file && !editCapturedBlob) {
         cameraTarget = 'edit';
         const url = URL.createObjectURL(file);
         openCropper(url);
@@ -797,8 +789,8 @@ import Layout from '../../layouts/Layout.astro';
       const formData = new FormData();
       formData.append('alias', alias);
       
-      if (editHasCameraCapture && editCapturedBlob) {
-        // Use cropped image
+      // If we have a cropped image, include it
+      if (editCapturedBlob) {
         formData.append('image', editCapturedBlob, 'image.jpg');
       }
 
