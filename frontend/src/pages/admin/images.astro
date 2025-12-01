@@ -434,11 +434,19 @@ import Layout from '../../layouts/Layout.astro';
 
     function clearCameraCapture(target: 'create' | 'edit') {
       if (target === 'create') {
+        // Clean up blob URL
+        if (createCapturedImage.src && createCapturedImage.src.startsWith('blob:')) {
+          URL.revokeObjectURL(createCapturedImage.src);
+        }
         createCameraPreview.style.display = 'none';
         createCapturedImage.src = '';
         createHasCameraCapture = false;
         createCapturedBlob = null;
       } else {
+        // Clean up blob URL
+        if (editCapturedImage.src && editCapturedImage.src.startsWith('blob:')) {
+          URL.revokeObjectURL(editCapturedImage.src);
+        }
         editCameraPreview.style.display = 'none';
         editCapturedImage.src = '';
         editHasCameraCapture = false;
@@ -470,6 +478,10 @@ import Layout from '../../layouts/Layout.astro';
       if (cropper) {
         cropper.destroy();
         cropper = null;
+      }
+      // Clean up blob URLs
+      if (cropperImage.src && cropperImage.src.startsWith('blob:')) {
+        URL.revokeObjectURL(cropperImage.src);
       }
       cropperModal.style.display = 'none';
       cropperImage.src = '';
