@@ -71,11 +71,28 @@ import Layout from '../layouts/Layout.astro';
     </div>
   </div>
 
+  <!-- Cropper Modal -->
+  <div id="cropper-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 1rem;">Recortar Imagen</h3>
+      <div id="cropper-container" style="max-width: 100%; max-height: 60vh; overflow: hidden;">
+        <img id="cropper-image" style="max-width: 100%; display: block;" />
+      </div>
+      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button id="cancel-crop-btn" class="btn btn-secondary">Cancelar</button>
+        <button id="confirm-crop-btn" class="btn btn-primary">✓ Confirmar Recorte</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    import Cropper from 'cropperjs';
+
     const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
     
     let currentUser: any = null;
     let videoStream: MediaStream | null = null;
+    let cropper: Cropper | null = null;
 
     const errorMessage = document.getElementById('error-message') as HTMLDivElement;
     const successMessage = document.getElementById('success-message') as HTMLDivElement;
@@ -94,6 +111,12 @@ import Layout from '../layouts/Layout.astro';
     // File upload elements
     const fileInput = document.getElementById('file-input') as HTMLInputElement;
     const uploadFileBtn = document.getElementById('upload-file-btn') as HTMLButtonElement;
+    
+    // Cropper modal elements
+    const cropperModal = document.getElementById('cropper-modal') as HTMLDivElement;
+    const cropperImage = document.getElementById('cropper-image') as HTMLImageElement;
+    const cancelCropBtn = document.getElementById('cancel-crop-btn') as HTMLButtonElement;
+    const confirmCropBtn = document.getElementById('confirm-crop-btn') as HTMLButtonElement;
     
     const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
     const adminLink = document.getElementById('admin-link') as HTMLAnchorElement;
@@ -208,16 +231,46 @@ import Layout from '../layouts/Layout.astro';
       cancelCameraBtn.style.display = 'none';
     }
 
+    // Cropper functions
+    function openCropper(imageUrl: string) {
+      cropperImage.src = imageUrl;
+      cropperModal.style.display = 'flex';
+      
+      // Initialize cropper after image loads
+      cropperImage.onload = () => {
+        if (cropper) {
+          cropper.destroy();
+        }
+        cropper = new Cropper(cropperImage, {
+          aspectRatio: 1,
+          viewMode: 1,
+          autoCropArea: 1,
+        } as any);
+      };
+    }
+
+    function closeCropper() {
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+      cropperModal.style.display = 'none';
+      cropperImage.src = '';
+    }
+
     function capturePhoto() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0);
-        canvas.toBlob(async (blob) => {
+        stopCamera();
+        
+        // Convert canvas to blob and open cropper
+        canvas.toBlob((blob) => {
           if (blob) {
-            stopCamera();
-            await uploadAvatar(blob);
+            const url = URL.createObjectURL(blob);
+            openCropper(url);
           }
         }, 'image/jpeg', 0.9);
       }
@@ -295,9 +348,34 @@ import Layout from '../layouts/Layout.astro';
     uploadFileBtn.addEventListener('click', () => {
       const file = fileInput.files?.[0];
       if (file) {
-        uploadAvatar(file);
+        const url = URL.createObjectURL(file);
+        openCropper(url);
       } else {
         showError('Por favor selecciona un archivo');
+      }
+    });
+
+    cancelCropBtn.addEventListener('click', () => {
+      closeCropper();
+    });
+
+    confirmCropBtn.addEventListener('click', () => {
+      if (cropper) {
+        const croppedCanvas = (cropper as any).getCroppedCanvas({
+          width: 400,
+          height: 400,
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: 'high',
+        });
+        
+        if (croppedCanvas) {
+          croppedCanvas.toBlob(async (blob: Blob | null) => {
+            if (blob) {
+              closeCropper();
+              await uploadAvatar(blob);
+            }
+          }, 'image/jpeg', 0.9);
+        }
       }
     });
 
@@ -312,4 +390,29 @@ import Layout from '../layouts/Layout.astro';
     // Initialize
     checkAuth();
   </script>
+
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 90%;
+      max-height: 90%;
+      overflow: auto;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+  </style>
 </Layout>
