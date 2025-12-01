@@ -123,6 +123,20 @@ import Layout from '../../layouts/Layout.astro';
     </div>
   </div>
 
+  <!-- Cropper Modal -->
+  <div id="cropper-modal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 90%; max-height: 90%;">
+      <h3 style="margin-bottom: 1rem;">Recortar Imagen</h3>
+      <div id="cropper-container" style="max-width: 100%; max-height: 60vh; overflow: hidden;">
+        <img id="cropper-image" style="max-width: 100%; display: block;" />
+      </div>
+      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button id="cancel-crop-btn" class="btn btn-secondary">Cancelar</button>
+        <button id="confirm-crop-btn" class="btn btn-primary">✓ Confirmar Recorte</button>
+      </div>
+    </div>
+  </div>
+
   <style>
     .create-section {
       margin-bottom: 2rem;
@@ -224,11 +238,15 @@ import Layout from '../../layouts/Layout.astro';
   </style>
 
   <script>
+    import Cropper from 'cropperjs';
+    import 'cropperjs/dist/cropper.css';
+
     const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
     
     let currentUser: any = null;
     let currentPage = 1;
     const perPage = 12;
+    let cropper: Cropper | null = null;
 
     const errorMessage = document.getElementById('error-message') as HTMLDivElement;
     const successMessage = document.getElementById('success-message') as HTMLDivElement;
@@ -266,6 +284,12 @@ import Layout from '../../layouts/Layout.astro';
     const useCaptureBtn = document.getElementById('use-capture-btn') as HTMLButtonElement;
     const cancelCameraBtn = document.getElementById('cancel-camera-btn') as HTMLButtonElement;
     
+    // Cropper modal elements
+    const cropperModal = document.getElementById('cropper-modal') as HTMLDivElement;
+    const cropperImage = document.getElementById('cropper-image') as HTMLImageElement;
+    const cancelCropBtn = document.getElementById('cancel-crop-btn') as HTMLButtonElement;
+    const confirmCropBtn = document.getElementById('confirm-crop-btn') as HTMLButtonElement;
+    
     // Create camera preview elements
     const createCameraPreview = document.getElementById('create-camera-preview') as HTMLDivElement;
     const createCapturedImage = document.getElementById('create-captured-image') as HTMLImageElement;
@@ -280,11 +304,11 @@ import Layout from '../../layouts/Layout.astro';
     let cameraStream: MediaStream | null = null;
     let capturedBlob: Blob | null = null;
     let cameraTarget: 'create' | 'edit' = 'create';
-    let createHasCameraCapture = false;
-    let editHasCameraCapture = false;
     // Persistent blobs for each form (not cleared by closeCamera)
     let createCapturedBlob: Blob | null = null;
     let editCapturedBlob: Blob | null = null;
+    // Track blob URL for cropper to revoke it properly
+    let currentCropperBlobUrl: string | null = null;
 
     function showError(message: string) {
       errorMessage.textContent = message;
@@ -360,19 +384,17 @@ import Layout from '../../layouts/Layout.astro';
       // Draw video frame to canvas
       context.drawImage(cameraVideo, 0, 0);
       
-      // Convert to blob
+      // Convert to blob and open cropper
       cameraCanvas.toBlob((blob) => {
         if (blob) {
           capturedBlob = blob;
-          cameraCapturedPreview.src = URL.createObjectURL(blob);
-          cameraCapturedContainer.style.display = 'block';
-          cameraVideo.style.display = 'none';
-          captureBtn.style.display = 'none';
-          retakeBtn.style.display = 'inline-block';
-          useCaptureBtn.style.display = 'inline-block';
-          stopCamera();
+          const url = URL.createObjectURL(blob);
+          openCropper(url);
+          closeCamera();
         }
       }, 'image/jpeg', 0.9);
+      
+      stopCamera();
     }
 
     async function retakePhoto() {
@@ -402,41 +424,111 @@ import Layout from '../../layouts/Layout.astro';
     function useCapturedPhoto() {
       if (!capturedBlob) return;
 
-      if (cameraTarget === 'create') {
-        // Store blob persistently for create form
-        createCapturedBlob = capturedBlob;
-        // Show preview in create form
-        createCapturedImage.src = URL.createObjectURL(capturedBlob);
-        createCameraPreview.style.display = 'block';
-        createHasCameraCapture = true;
-        // Clear file input since we're using camera capture
-        imageFileInput.value = '';
-      } else {
-        // Store blob persistently for edit form
-        editCapturedBlob = capturedBlob;
-        // Show preview in edit form
-        editCapturedImage.src = URL.createObjectURL(capturedBlob);
-        editCameraPreview.style.display = 'block';
-        editHasCameraCapture = true;
-        // Clear file input since we're using camera capture
-        editImageFileInput.value = '';
-      }
-
+      // Close camera modal and open cropper
       closeCamera();
+      const url = URL.createObjectURL(capturedBlob);
+      openCropper(url);
     }
 
     function clearCameraCapture(target: 'create' | 'edit') {
       if (target === 'create') {
+        // Clean up blob URL
+        if (createCapturedImage.src && createCapturedImage.src.startsWith('blob:')) {
+          URL.revokeObjectURL(createCapturedImage.src);
+        }
         createCameraPreview.style.display = 'none';
         createCapturedImage.src = '';
-        createHasCameraCapture = false;
         createCapturedBlob = null;
       } else {
+        // Clean up blob URL
+        if (editCapturedImage.src && editCapturedImage.src.startsWith('blob:')) {
+          URL.revokeObjectURL(editCapturedImage.src);
+        }
         editCameraPreview.style.display = 'none';
         editCapturedImage.src = '';
-        editHasCameraCapture = false;
         editCapturedBlob = null;
       }
+    }
+
+    // Cropper functions
+    function openCropper(imageUrl: string) {
+      // Clean up previous blob URL if exists
+      if (currentCropperBlobUrl) {
+        URL.revokeObjectURL(currentCropperBlobUrl);
+      }
+      
+      // Store the blob URL so we can revoke it later
+      currentCropperBlobUrl = imageUrl;
+      
+      cropperImage.src = imageUrl;
+      cropperModal.style.display = 'flex';
+      
+      // Initialize cropper after image loads
+      cropperImage.onload = () => {
+        if (cropper) {
+          cropper.destroy();
+        }
+        cropper = new Cropper(cropperImage, {
+          aspectRatio: 1,
+          viewMode: 1,
+          autoCropArea: 1,
+          responsive: true,
+          background: false,
+        });
+      };
+    }
+
+    function closeCropper() {
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+      // Clean up blob URL
+      if (currentCropperBlobUrl) {
+        URL.revokeObjectURL(currentCropperBlobUrl);
+        currentCropperBlobUrl = null;
+      }
+      cropperModal.style.display = 'none';
+      cropperImage.src = '';
+      
+      // Clear file inputs when canceling cropper
+      if (cameraTarget === 'create') {
+        imageFileInput.value = '';
+      } else {
+        editImageFileInput.value = '';
+      }
+    }
+
+    async function cropAndUseImage() {
+      if (!cropper) return;
+
+      const canvas = cropper.getCroppedCanvas({
+        width: 400,
+        height: 400,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+      });
+      
+      if (!canvas) return;
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          closeCropper();
+          
+          // Store the cropped blob based on the camera target
+          if (cameraTarget === 'create') {
+            createCapturedBlob = blob;
+            createCapturedImage.src = URL.createObjectURL(blob);
+            createCameraPreview.style.display = 'block';
+            imageFileInput.value = '';
+          } else {
+            editCapturedBlob = blob;
+            editCapturedImage.src = URL.createObjectURL(blob);
+            editCameraPreview.style.display = 'block';
+            editImageFileInput.value = '';
+          }
+        }
+      }, 'image/jpeg', 0.9);
     }
 
     // Check authentication and admin role
@@ -593,13 +685,10 @@ import Layout from '../../layouts/Layout.astro';
       if (!token) return;
 
       const alias = aliasInput.value.trim();
-      const file = imageFileInput.files?.[0];
       
-      // Check if we have a camera capture or file
-      const hasFile = file !== undefined;
-
-      if (!alias || (!hasFile && !createHasCameraCapture)) {
-        showError('Por favor completa todos los campos');
+      // Check if we have a cropped image (preview)
+      if (!alias || !createCapturedBlob) {
+        showError('Por favor completa todos los campos y sube una imagen');
         return;
       }
 
@@ -609,13 +698,8 @@ import Layout from '../../layouts/Layout.astro';
       const formData = new FormData();
       formData.append('alias', alias);
       
-      if (createHasCameraCapture && createCapturedBlob) {
-        // Use camera capture
-        formData.append('image', createCapturedBlob, 'camera-capture.jpg');
-      } else if (file) {
-        // Use file input
-        formData.append('image', file);
-      }
+      // Use cropped image
+      formData.append('image', createCapturedBlob, 'image.jpg');
 
       try {
         const response = await fetch(`${API_URL}/api/admin/images`, {
@@ -694,7 +778,6 @@ import Layout from '../../layouts/Layout.astro';
 
       const imageId = editIdInput.value;
       const alias = editAliasInput.value.trim();
-      const file = editImageFileInput.files?.[0];
 
       if (!alias) {
         showError('El alias es requerido');
@@ -704,11 +787,9 @@ import Layout from '../../layouts/Layout.astro';
       const formData = new FormData();
       formData.append('alias', alias);
       
-      if (editHasCameraCapture && editCapturedBlob) {
-        // Use camera capture
-        formData.append('image', editCapturedBlob, 'camera-capture.jpg');
-      } else if (file) {
-        formData.append('image', file);
+      // If we have a cropped image, include it
+      if (editCapturedBlob) {
+        formData.append('image', editCapturedBlob, 'image.jpg');
       }
 
       try {
@@ -789,10 +870,40 @@ import Layout from '../../layouts/Layout.astro';
     clearCaptureBtn.addEventListener('click', () => clearCameraCapture('create'));
     editClearCaptureBtn.addEventListener('click', () => clearCameraCapture('edit'));
     
+    // Cropper event listeners
+    cancelCropBtn.addEventListener('click', closeCropper);
+    confirmCropBtn.addEventListener('click', cropAndUseImage);
+    
+    // File input event listeners - open cropper when file is selected
+    imageFileInput.addEventListener('change', () => {
+      const file = imageFileInput.files?.[0];
+      if (file) {
+        cameraTarget = 'create';
+        const url = URL.createObjectURL(file);
+        openCropper(url);
+      }
+    });
+    
+    editImageFileInput.addEventListener('change', () => {
+      const file = editImageFileInput.files?.[0];
+      if (file) {
+        cameraTarget = 'edit';
+        const url = URL.createObjectURL(file);
+        openCropper(url);
+      }
+    });
+    
     // Close camera modal on background click
     cameraModal.addEventListener('click', (e) => {
       if (e.target === cameraModal) {
         closeCamera();
+      }
+    });
+    
+    // Close cropper modal on background click
+    cropperModal.addEventListener('click', (e) => {
+      if (e.target === cropperModal) {
+        closeCropper();
       }
     });
 
