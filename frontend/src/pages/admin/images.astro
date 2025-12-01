@@ -23,8 +23,8 @@ import Layout from '../../layouts/Layout.astro';
         <h2>Crear Nueva Imagen</h2>
         <form id="create-image-form" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
           <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
-            <label for="alias">Alias</label>
-            <input type="text" id="alias" name="alias" required placeholder="Nombre descriptivo de la imagen" />
+            <label for="alias">Alias (5-15 caracteres, solo letras y números)</label>
+            <input type="text" id="alias" name="alias" required placeholder="Ej: avatar123" maxlength="15" />
           </div>
           <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
             <label for="image-file">Imagen</label>
@@ -73,8 +73,8 @@ import Layout from '../../layouts/Layout.astro';
       <form id="edit-image-form">
         <input type="hidden" id="edit-id" />
         <div class="form-group">
-          <label for="edit-alias">Alias</label>
-          <input type="text" id="edit-alias" name="alias" required />
+          <label for="edit-alias">Alias (5-15 caracteres, solo letras y números)</label>
+          <input type="text" id="edit-alias" name="alias" required maxlength="15" />
         </div>
         <div class="form-group">
           <label for="edit-image-file">Nueva Imagen (opcional)</label>
@@ -846,6 +846,61 @@ import Layout from '../../layouts/Layout.astro';
         console.error('Delete error:', error);
       }
     }
+
+    // Constants for alias validation
+    const ALIAS_MIN_LENGTH = 5;
+    const ALIAS_MAX_LENGTH = 15;
+
+    // Alias input validation function
+    function validateAliasInput(input: HTMLInputElement) {
+      let value = input.value;
+      
+      // Remove special characters and spaces, only allow English letters and numbers
+      value = value.replace(/[^a-zA-Z0-9]/g, '');
+      
+      // Limit to maximum characters
+      if (value.length > ALIAS_MAX_LENGTH) {
+        value = value.substring(0, ALIAS_MAX_LENGTH);
+      }
+      
+      input.value = value;
+    }
+
+    // Function to add suffix if less than minimum characters
+    function ensureMinimumLength(input: HTMLInputElement) {
+      let value = input.value.trim();
+      
+      if (value.length > 0 && value.length < ALIAS_MIN_LENGTH) {
+        // Generate suffix with random alphanumeric characters to reach minimum length
+        const needed = ALIAS_MIN_LENGTH - value.length;
+        let suffix = '';
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        for (let i = 0; i < needed; i++) {
+          suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        input.value = value + suffix;
+      }
+    }
+
+    // Add input event listener for create form alias
+    aliasInput.addEventListener('input', () => {
+      validateAliasInput(aliasInput);
+    });
+
+    // Add blur event listener for create form alias to add suffix if needed
+    aliasInput.addEventListener('blur', () => {
+      ensureMinimumLength(aliasInput);
+    });
+
+    // Add input event listener for edit form alias
+    editAliasInput.addEventListener('input', () => {
+      validateAliasInput(editAliasInput);
+    });
+
+    // Add blur event listener for edit form alias to add suffix if needed
+    editAliasInput.addEventListener('blur', () => {
+      ensureMinimumLength(editAliasInput);
+    });
 
     // Event listeners
     createForm.addEventListener('submit', createImage);
