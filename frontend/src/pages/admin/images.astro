@@ -847,6 +847,10 @@ import Layout from '../../layouts/Layout.astro';
       }
     }
 
+    // Constants for alias validation
+    const ALIAS_MIN_LENGTH = 5;
+    const ALIAS_MAX_LENGTH = 15;
+
     // Alias input validation function
     function validateAliasInput(input: HTMLInputElement) {
       let value = input.value;
@@ -854,22 +858,26 @@ import Layout from '../../layouts/Layout.astro';
       // Remove special characters and spaces, only allow English letters and numbers
       value = value.replace(/[^a-zA-Z0-9]/g, '');
       
-      // Limit to 15 characters
-      if (value.length > 15) {
-        value = value.substring(0, 15);
+      // Limit to maximum characters
+      if (value.length > ALIAS_MAX_LENGTH) {
+        value = value.substring(0, ALIAS_MAX_LENGTH);
       }
       
       input.value = value;
     }
 
-    // Function to add suffix if less than 5 characters
+    // Function to add suffix if less than minimum characters
     function ensureMinimumLength(input: HTMLInputElement) {
       let value = input.value.trim();
       
-      if (value.length > 0 && value.length < 5) {
-        // Generate suffix with random numbers to reach 5 characters
-        const needed = 5 - value.length;
-        const suffix = Math.random().toString(36).substring(2, 2 + needed).toUpperCase();
+      if (value.length > 0 && value.length < ALIAS_MIN_LENGTH) {
+        // Generate suffix with random alphanumeric characters to reach minimum length
+        const needed = ALIAS_MIN_LENGTH - value.length;
+        let suffix = '';
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        for (let i = 0; i < needed; i++) {
+          suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
         input.value = value + suffix;
       }
     }
