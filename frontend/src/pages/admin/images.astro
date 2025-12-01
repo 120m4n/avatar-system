@@ -877,7 +877,7 @@ import Layout from '../../layouts/Layout.astro';
     confirmCropBtn.addEventListener('click', cropAndUseImage);
     
     // File input event listeners - open cropper when file is selected
-    imageFileInput.addEventListener('change', (e) => {
+    imageFileInput.addEventListener('change', () => {
       const file = imageFileInput.files?.[0];
       if (file) {
         cameraTarget = 'create';
@@ -886,7 +886,7 @@ import Layout from '../../layouts/Layout.astro';
       }
     });
     
-    editImageFileInput.addEventListener('change', (e) => {
+    editImageFileInput.addEventListener('change', () => {
       const file = editImageFileInput.files?.[0];
       if (file) {
         cameraTarget = 'edit';
