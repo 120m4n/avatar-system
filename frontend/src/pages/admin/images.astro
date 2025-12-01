@@ -307,6 +307,8 @@ import Layout from '../../layouts/Layout.astro';
     // Persistent blobs for each form (not cleared by closeCamera)
     let createCapturedBlob: Blob | null = null;
     let editCapturedBlob: Blob | null = null;
+    // Track blob URL for cropper to revoke it properly
+    let currentCropperBlobUrl: string | null = null;
 
     function showError(message: string) {
       errorMessage.textContent = message;
@@ -452,6 +454,14 @@ import Layout from '../../layouts/Layout.astro';
 
     // Cropper functions
     function openCropper(imageUrl: string) {
+      // Clean up previous blob URL if exists
+      if (currentCropperBlobUrl) {
+        URL.revokeObjectURL(currentCropperBlobUrl);
+      }
+      
+      // Store the blob URL so we can revoke it later
+      currentCropperBlobUrl = imageUrl;
+      
       cropperImage.src = imageUrl;
       cropperModal.style.display = 'flex';
       
@@ -475,9 +485,10 @@ import Layout from '../../layouts/Layout.astro';
         cropper.destroy();
         cropper = null;
       }
-      // Clean up blob URLs
-      if (cropperImage.src && cropperImage.src.startsWith('blob:')) {
-        URL.revokeObjectURL(cropperImage.src);
+      // Clean up blob URL
+      if (currentCropperBlobUrl) {
+        URL.revokeObjectURL(currentCropperBlobUrl);
+        currentCropperBlobUrl = null;
       }
       cropperModal.style.display = 'none';
       cropperImage.src = '';
