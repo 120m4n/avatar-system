@@ -86,6 +86,7 @@ import Layout from '../layouts/Layout.astro';
   </div>
 
   <script>
+    // Cropper.js v2.x uses Web Components with Shadow DOM - no CSS import needed
     import Cropper from 'cropperjs';
 
     const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
@@ -241,6 +242,7 @@ import Layout from '../layouts/Layout.astro';
         if (cropper) {
           cropper.destroy();
         }
+        // Type assertion needed due to incomplete v2.x TypeScript definitions
         cropper = new Cropper(cropperImage, {
           aspectRatio: 1,
           viewMode: 1,
@@ -361,6 +363,7 @@ import Layout from '../layouts/Layout.astro';
 
     confirmCropBtn.addEventListener('click', () => {
       if (cropper) {
+        // Type assertion needed due to incomplete v2.x TypeScript definitions
         const croppedCanvas = (cropper as any).getCroppedCanvas({
           width: 400,
           height: 400,
