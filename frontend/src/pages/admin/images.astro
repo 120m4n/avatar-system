@@ -500,7 +500,7 @@ import Layout from '../../layouts/Layout.astro';
       cropperModal.style.display = 'flex';
       
       // Wait for image to load with error handling
-      let timeoutId: number;
+      let timeoutId: ReturnType<typeof setTimeout>;
       const loadPromise = new Promise((resolve, reject) => {
         const onLoad = () => {
           clearTimeout(timeoutId);
@@ -574,7 +574,11 @@ import Layout from '../../layouts/Layout.astro';
     function applyCrop() {
       if (!cropper) return;
       
-      const canvas = cropper.getCroppedCanvas();
+      const canvas = cropper.getCroppedCanvas({
+        maxWidth: 2048,
+        maxHeight: 2048,
+        fillColor: '#fff',
+      });
       if (!canvas) {
         showError('Error al generar la imagen recortada');
         croppingInProgress = false;
@@ -980,6 +984,7 @@ import Layout from '../../layouts/Layout.astro';
         } catch (error) {
           console.error('Error opening cropper:', error);
           showError('Error al abrir el recortador de imágenes');
+          imageFileInput.value = '';
         }
       }
     });
@@ -992,6 +997,7 @@ import Layout from '../../layouts/Layout.astro';
         } catch (error) {
           console.error('Error opening cropper:', error);
           showError('Error al abrir el recortador de imágenes');
+          editImageFileInput.value = '';
         }
       }
     });
