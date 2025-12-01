@@ -978,12 +978,17 @@ import Layout from '../../layouts/Layout.astro';
     // File input event listeners for cropping
     imageFileInput.addEventListener('change', async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file && file.type.startsWith('image/')) {
-        try {
-          await openCropper(file, 'create');
-        } catch (error) {
-          console.error('Error opening cropper:', error);
-          showError('Error al abrir el recortador de imágenes');
+      if (file) {
+        if (file.type.startsWith('image/')) {
+          try {
+            await openCropper(file, 'create');
+          } catch (error) {
+            console.error('Error opening cropper:', error);
+            showError('Error al abrir el recortador de imágenes');
+            imageFileInput.value = '';
+          }
+        } else {
+          showError('Por favor selecciona un archivo de imagen válido');
           imageFileInput.value = '';
         }
       }
@@ -991,12 +996,17 @@ import Layout from '../../layouts/Layout.astro';
     
     editImageFileInput.addEventListener('change', async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file && file.type.startsWith('image/')) {
-        try {
-          await openCropper(file, 'edit');
-        } catch (error) {
-          console.error('Error opening cropper:', error);
-          showError('Error al abrir el recortador de imágenes');
+      if (file) {
+        if (file.type.startsWith('image/')) {
+          try {
+            await openCropper(file, 'edit');
+          } catch (error) {
+            console.error('Error opening cropper:', error);
+            showError('Error al abrir el recortador de imágenes');
+            editImageFileInput.value = '';
+          }
+        } else {
+          showError('Por favor selecciona un archivo de imagen válido');
           editImageFileInput.value = '';
         }
       }
