@@ -170,7 +170,7 @@ class ImageCard extends HTMLElement {
           <img 
             src="${imageUrl}" 
             alt="${alias}"
-            onerror="this.src='${this.placeholder}'"
+            class="card-image"
           />
         </div>
         <h4>${alias}</h4>
@@ -188,6 +188,14 @@ class ImageCard extends HTMLElement {
         </div>
       </div>
     `;
+
+    // Set up error handling for image loading safely using addEventListener
+    const img = this.shadowRoot.querySelector('.card-image');
+    if (img) {
+      img.addEventListener('error', () => {
+        img.src = this.placeholder;
+      });
+    }
 
     // Note: Event listeners for edit/delete are intentionally not added in this commit
     // as per requirement #5. These will be added in a future commit.
