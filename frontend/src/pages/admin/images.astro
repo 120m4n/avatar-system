@@ -500,16 +500,37 @@ import Layout from '../../layouts/Layout.astro';
       cropperModal.style.display = 'flex';
       
       // Wait for image to load with error handling
-      await new Promise((resolve, reject) => {
-        cropperImage.onload = resolve;
-        cropperImage.onerror = () => reject(new Error('Failed to load image'));
-        setTimeout(() => reject(new Error('Image load timeout')), 10000);
-      }).catch((error) => {
+      let timeoutId: number;
+      const loadPromise = new Promise((resolve, reject) => {
+        const onLoad = () => {
+          clearTimeout(timeoutId);
+          cropperImage.onload = null;
+          cropperImage.onerror = null;
+          resolve(true);
+        };
+        const onError = () => {
+          clearTimeout(timeoutId);
+          cropperImage.onload = null;
+          cropperImage.onerror = null;
+          reject(new Error('Failed to load image'));
+        };
+        cropperImage.onload = onLoad;
+        cropperImage.onerror = onError;
+        timeoutId = setTimeout(() => {
+          cropperImage.onload = null;
+          cropperImage.onerror = null;
+          reject(new Error('Image load timeout'));
+        }, 10000);
+      });
+      
+      try {
+        await loadPromise;
+      } catch (error) {
         console.error('Error loading image:', error);
         showError('Error al cargar la imagen para recortar');
         closeCropper();
         return;
-      });
+      }
       
       // Initialize cropper
       cropper = new Cropper(cropperImage, {
@@ -535,7 +556,9 @@ import Layout from '../../layouts/Layout.astro';
         cropper = null;
       }
       cropperModal.style.display = 'none';
-      URL.revokeObjectURL(cropperImage.src);
+      if (cropperImage.src && cropperImage.src.startsWith('blob:')) {
+        URL.revokeObjectURL(cropperImage.src);
+      }
       cropperImage.src = '';
       
       if (croppingInProgress) {
@@ -949,17 +972,27 @@ import Layout from '../../layouts/Layout.astro';
     });
 
     // File input event listeners for cropping
-    imageFileInput.addEventListener('change', (e) => {
+    imageFileInput.addEventListener('change', async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file && file.type.startsWith('image/')) {
-        openCropper(file, 'create');
+        try {
+          await openCropper(file, 'create');
+        } catch (error) {
+          console.error('Error opening cropper:', error);
+          showError('Error al abrir el recortador de imágenes');
+        }
       }
     });
     
-    editImageFileInput.addEventListener('change', (e) => {
+    editImageFileInput.addEventListener('change', async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file && file.type.startsWith('image/')) {
-        openCropper(file, 'edit');
+        try {
+          await openCropper(file, 'edit');
+        } catch (error) {
+          console.error('Error opening cropper:', error);
+          showError('Error al abrir el recortador de imágenes');
+        }
       }
     });
     
