@@ -364,17 +364,21 @@ import Layout from '../layouts/Layout.astro';
 
     confirmCropBtn.addEventListener('click', () => {
       if (cropper) {
-        cropper.getCroppedCanvas({
+        const canvas = cropper.getCroppedCanvas({
           width: 400,
           height: 400,
           imageSmoothingEnabled: true,
           imageSmoothingQuality: 'high',
-        }).toBlob(async (blob) => {
-          if (blob) {
-            closeCropper();
-            await uploadAvatar(blob);
-          }
-        }, 'image/jpeg', 0.9);
+        });
+        
+        if (canvas) {
+          canvas.toBlob(async (blob) => {
+            if (blob) {
+              closeCropper();
+              await uploadAvatar(blob);
+            }
+          }, 'image/jpeg', 0.9);
+        }
       }
     });
 
