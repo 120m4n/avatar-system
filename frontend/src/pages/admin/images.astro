@@ -384,19 +384,17 @@ import Layout from '../../layouts/Layout.astro';
       // Draw video frame to canvas
       context.drawImage(cameraVideo, 0, 0);
       
-      // Convert to blob
+      // Convert to blob and open cropper
       cameraCanvas.toBlob((blob) => {
         if (blob) {
           capturedBlob = blob;
-          cameraCapturedPreview.src = URL.createObjectURL(blob);
-          cameraCapturedContainer.style.display = 'block';
-          cameraVideo.style.display = 'none';
-          captureBtn.style.display = 'none';
-          retakeBtn.style.display = 'inline-block';
-          useCaptureBtn.style.display = 'inline-block';
-          stopCamera();
+          const url = URL.createObjectURL(blob);
+          openCropper(url);
+          closeCamera();
         }
       }, 'image/jpeg', 0.9);
+      
+      stopCamera();
     }
 
     async function retakePhoto() {
