@@ -473,13 +473,19 @@ import Layout from '../../layouts/Layout.astro';
         createCapturedImage.src = '';
         createHasCameraCapture = false;
         createCapturedBlob = null;
-        createHasCrop = false;
-        createCroppedBlob = null;
       } else {
         editCameraPreview.style.display = 'none';
         editCapturedImage.src = '';
         editHasCameraCapture = false;
         editCapturedBlob = null;
+      }
+    }
+    
+    function clearCropData(target: 'create' | 'edit') {
+      if (target === 'create') {
+        createHasCrop = false;
+        createCroppedBlob = null;
+      } else {
         editHasCrop = false;
         editCroppedBlob = null;
       }
@@ -493,8 +499,17 @@ import Layout from '../../layouts/Layout.astro';
       cropperImage.src = url;
       cropperModal.style.display = 'flex';
       
-      // Wait for image to load
-      await new Promise(resolve => cropperImage.onload = resolve);
+      // Wait for image to load with error handling
+      await new Promise((resolve, reject) => {
+        cropperImage.onload = resolve;
+        cropperImage.onerror = () => reject(new Error('Failed to load image'));
+        setTimeout(() => reject(new Error('Image load timeout')), 10000);
+      }).catch((error) => {
+        console.error('Error loading image:', error);
+        showError('Error al cargar la imagen para recortar');
+        closeCropper();
+        return;
+      });
       
       // Initialize cropper
       cropper = new Cropper(cropperImage, {
@@ -536,22 +551,34 @@ import Layout from '../../layouts/Layout.astro';
     function applyCrop() {
       if (!cropper) return;
       
-      cropper.getCroppedCanvas().toBlob((blob: Blob) => {
+      const canvas = cropper.getCroppedCanvas();
+      if (!canvas) {
+        showError('Error al generar la imagen recortada');
+        croppingInProgress = false;
+        closeCropper();
+        return;
+      }
+      
+      canvas.toBlob((blob: Blob | null) => {
         if (blob) {
           if (cropperTarget === 'create') {
             createCroppedBlob = blob;
             createHasCrop = true;
-            // Clear camera if any
+            // Clear camera capture only (not crop data)
             clearCameraCapture('create');
           } else {
             editCroppedBlob = blob;
             editHasCrop = true;
-            // Clear camera if any
+            // Clear camera capture only (not crop data)
             clearCameraCapture('edit');
           }
+          croppingInProgress = false;
+          closeCropper();
+        } else {
+          showError('Error al crear la imagen recortada');
+          croppingInProgress = false;
+          closeCropper();
         }
-        croppingInProgress = false;
-        closeCropper();
       }, 'image/jpeg', 0.9);
     }
 
@@ -750,8 +777,9 @@ import Layout from '../../layouts/Layout.astro';
         if (response.ok) {
           showSuccess('¡Imagen creada exitosamente!');
           createForm.reset();
-          // Clear camera capture and crop preview
+          // Clear camera capture and crop data
           clearCameraCapture('create');
+          clearCropData('create');
           loadImages(1);
         } else {
           showError(data.error || 'Error al crear imagen');
@@ -800,8 +828,9 @@ import Layout from '../../layouts/Layout.astro';
     function closeEditModal() {
       editModal.style.display = 'none';
       editForm.reset();
-      // Clear camera capture and crop for edit
+      // Clear camera capture and crop data for edit
       clearCameraCapture('edit');
+      clearCropData('edit');
     }
 
     // Update image
