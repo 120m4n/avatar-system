@@ -492,6 +492,13 @@ import Layout from '../../layouts/Layout.astro';
       }
       cropperModal.style.display = 'none';
       cropperImage.src = '';
+      
+      // Clear file inputs when canceling cropper
+      if (cameraTarget === 'create') {
+        imageFileInput.value = '';
+      } else {
+        editImageFileInput.value = '';
+      }
     }
 
     async function cropAndUseImage() {
@@ -680,19 +687,10 @@ import Layout from '../../layouts/Layout.astro';
       if (!token) return;
 
       const alias = aliasInput.value.trim();
-      const file = imageFileInput.files?.[0];
       
-      // If file is selected but not yet cropped, open cropper first
-      if (file && !createCapturedBlob) {
-        cameraTarget = 'create';
-        const url = URL.createObjectURL(file);
-        openCropper(url);
-        return;
-      }
-      
-      // Check if we have a cropped image
+      // Check if we have a cropped image (preview)
       if (!alias || !createCapturedBlob) {
-        showError('Por favor completa todos los campos');
+        showError('Por favor completa todos los campos y sube una imagen');
         return;
       }
 
@@ -782,18 +780,9 @@ import Layout from '../../layouts/Layout.astro';
 
       const imageId = editIdInput.value;
       const alias = editAliasInput.value.trim();
-      const file = editImageFileInput.files?.[0];
 
       if (!alias) {
         showError('El alias es requerido');
-        return;
-      }
-
-      // If file is selected but not yet cropped, open cropper first
-      if (file && !editCapturedBlob) {
-        cameraTarget = 'edit';
-        const url = URL.createObjectURL(file);
-        openCropper(url);
         return;
       }
 
@@ -886,6 +875,25 @@ import Layout from '../../layouts/Layout.astro';
     // Cropper event listeners
     cancelCropBtn.addEventListener('click', closeCropper);
     confirmCropBtn.addEventListener('click', cropAndUseImage);
+    
+    // File input event listeners - open cropper when file is selected
+    imageFileInput.addEventListener('change', (e) => {
+      const file = imageFileInput.files?.[0];
+      if (file) {
+        cameraTarget = 'create';
+        const url = URL.createObjectURL(file);
+        openCropper(url);
+      }
+    });
+    
+    editImageFileInput.addEventListener('change', (e) => {
+      const file = editImageFileInput.files?.[0];
+      if (file) {
+        cameraTarget = 'edit';
+        const url = URL.createObjectURL(file);
+        openCropper(url);
+      }
+    });
     
     // Close camera modal on background click
     cameraModal.addEventListener('click', (e) => {
