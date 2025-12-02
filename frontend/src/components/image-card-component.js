@@ -98,7 +98,7 @@ class ImageCard extends HTMLElement {
 
         .image-container {
           width: 100%;
-          height: 100px;
+          height: 250px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -109,8 +109,8 @@ class ImageCard extends HTMLElement {
         }
 
         img {
-          width: 100px;
-          height: 100px;
+          width: 200px;
+          height: 200px;
           object-fit: cover;
           border-radius: 8px;
         }
@@ -131,6 +131,7 @@ class ImageCard extends HTMLElement {
         .actions {
           display: flex;
           gap: 0.5rem;
+          justify-content: space-between;
         }
 
         .btn {
@@ -142,6 +143,7 @@ class ImageCard extends HTMLElement {
           font-weight: 500;
           transition: all 0.2s ease;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+          min-width: 105px;
         }
 
         .btn-primary {
