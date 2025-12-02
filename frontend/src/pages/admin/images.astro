@@ -614,24 +614,13 @@ import Layout from '../../layouts/Layout.astro';
         
         imagesGrid.appendChild(imageCard);
       });
-
-      // Attach event listeners using event delegation
-      attachImageCardEventListeners();
-    }
-
-    // Attach event listeners to image card buttons using event delegation
-    function attachImageCardEventListeners() {
-      // Remove existing listeners to prevent duplicates
-      imagesGrid.removeEventListener('click', handleImageCardClick);
-      
-      // Add event listener using delegation
-      imagesGrid.addEventListener('click', handleImageCardClick);
     }
 
     // Handle clicks on image card buttons
     function handleImageCardClick(e: Event) {
       // Check if the click originated from inside a shadow root
-      const composedPath = e.composedPath();
+      // Use composedPath with fallback for better browser compatibility
+      const composedPath = (e as any).composedPath?.() || (e as any).path || [e.target];
       
       // Find the button in the composed path
       let button: HTMLElement | null = null;
@@ -913,6 +902,9 @@ import Layout from '../../layouts/Layout.astro';
     refreshBtn.addEventListener('click', () => loadImages(currentPage));
     editForm.addEventListener('submit', updateImage);
     cancelEditBtn.addEventListener('click', closeEditModal);
+    
+    // Event delegation for image card buttons (edit/delete)
+    imagesGrid.addEventListener('click', handleImageCardClick);
     
     // Close modal on background click
     editModal.addEventListener('click', (e) => {
