@@ -620,7 +620,9 @@ import Layout from '../../layouts/Layout.astro';
     function handleImageCardClick(e: Event) {
       // Check if the click originated from inside a shadow root
       // Use composedPath with fallback for better browser compatibility
-      const composedPath = (e as any).composedPath?.() || (e as any).path || [e.target];
+      const composedPath = typeof (e as any).composedPath === 'function' 
+        ? (e as any).composedPath() 
+        : [e.target];
       
       // Find the button in the composed path
       let button: HTMLElement | null = null;
