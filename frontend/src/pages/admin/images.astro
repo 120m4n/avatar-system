@@ -56,32 +56,11 @@ import Layout from '../../layouts/Layout.astro';
           <button id="refresh-btn" class="btn btn-secondary">🔄 Actualizar</button>
         </div>
         
-        <!-- LEGACY CODE: Using hardcoded HTML with class="image-card" -->
-        <!-- TODO: Remove this section once web component is validated and tested -->
-        <div id="images-grid" class="images-grid">
-          <p style="color: #666; text-align: center; grid-column: 1/-1;">Cargando imágenes...</p>
+        <div id="images-grid" class="images-grid-flex">
+          <p style="color: #666; text-align: center; width: 100%;">Cargando imágenes...</p>
         </div>
         
         <div id="pagination" class="pagination" style="margin-top: 1rem; display: flex; justify-content: center; gap: 0.5rem;">
-        </div>
-      </div>
-
-      <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e0e0e0;" />
-
-      <!-- WEB COMPONENT DEMO: New image-card web component -->
-      <!-- This section demonstrates the new web component approach -->
-      <!-- Once validated, the legacy code above can be replaced with this implementation -->
-      <div class="web-component-demo-section">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h2>🧪 Demo: Web Component (image-card)</h2>
-          <button id="refresh-webcomponent-btn" class="btn btn-secondary">🔄 Actualizar Web Components</button>
-        </div>
-        
-        <div id="webcomponent-images-grid" class="images-grid-flex">
-          <p style="color: #666; text-align: center; width: 100%;">Cargando web components...</p>
-        </div>
-        
-        <div id="webcomponent-pagination" class="pagination" style="margin-top: 1rem; display: flex; justify-content: center; gap: 0.5rem;">
         </div>
       </div>
     </div>
@@ -163,12 +142,6 @@ import Layout from '../../layouts/Layout.astro';
       margin-bottom: 2rem;
     }
     
-    .images-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: 1.5rem;
-    }
-
     /* Flex-based grid for web components */
     .images-grid-flex {
       display: flex;
@@ -200,51 +173,6 @@ import Layout from '../../layouts/Layout.astro';
       .images-grid-flex image-card {
         flex: 0 0 100%;
       }
-    }
-    
-    .image-card {
-      background: #f8f9fa;
-      border-radius: 12px;
-      padding: 1rem;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    
-    .image-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-    
-    .image-card img {
-      width: 100%;
-      height: 180px;
-      object-fit: cover;
-      border-radius: 8px;
-      margin-bottom: 0.75rem;
-      background: #e0e0e0;
-    }
-    
-    .image-card h4 {
-      margin: 0 0 0.5rem 0;
-      font-size: 1.1rem;
-      color: #333;
-      word-break: break-word;
-    }
-    
-    .image-card .meta {
-      font-size: 0.85rem;
-      color: #666;
-      margin-bottom: 0.75rem;
-    }
-    
-    .image-card .actions {
-      display: flex;
-      gap: 0.5rem;
-    }
-    
-    .image-card .btn {
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
     }
     
     .modal {
@@ -303,19 +231,11 @@ import Layout from '../../layouts/Layout.astro';
     let currentPage = 1;
     const perPage = 12;
     let cropper: Cropper | null = null;
-    
-    // Web component demo state
-    let webComponentCurrentPage = 1;
 
     const errorMessage = document.getElementById('error-message') as HTMLDivElement;
     const successMessage = document.getElementById('success-message') as HTMLDivElement;
     const imagesGrid = document.getElementById('images-grid') as HTMLDivElement;
     const paginationDiv = document.getElementById('pagination') as HTMLDivElement;
-    
-    // Web component elements
-    const webComponentImagesGrid = document.getElementById('webcomponent-images-grid') as HTMLDivElement;
-    const webComponentPaginationDiv = document.getElementById('webcomponent-pagination') as HTMLDivElement;
-    const refreshWebComponentBtn = document.getElementById('refresh-webcomponent-btn') as HTMLButtonElement;
     
     // Form elements
     const createForm = document.getElementById('create-image-form') as HTMLFormElement;
@@ -342,7 +262,6 @@ import Layout from '../../layouts/Layout.astro';
     const cameraCanvas = document.getElementById('camera-canvas') as HTMLCanvasElement;
     const cameraError = document.getElementById('camera-error') as HTMLDivElement;
     const cameraCapturedContainer = document.getElementById('camera-captured-container') as HTMLDivElement;
-    const cameraCapturedPreview = document.getElementById('camera-captured-preview') as HTMLImageElement;
     const captureBtn = document.getElementById('capture-btn') as HTMLButtonElement;
     const retakeBtn = document.getElementById('retake-btn') as HTMLButtonElement;
     const useCaptureBtn = document.getElementById('use-capture-btn') as HTMLButtonElement;
@@ -626,8 +545,6 @@ import Layout from '../../layouts/Layout.astro';
           }
           
           loadImages();
-          // Also load web component demo
-          loadImagesWebComponent();
         } else {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -667,11 +584,11 @@ import Layout from '../../layouts/Layout.astro';
       }
     }
 
-    // Render images grid
+    // Render images using web components
     function renderImages(images: any[]) {
       if (images.length === 0) {
         imagesGrid.innerHTML = `
-          <div class="empty-state" style="grid-column: 1/-1;">
+          <div class="empty-state" style="width: 100%;">
             <div class="icon">🖼️</div>
             <h3>No hay imágenes</h3>
             <p>Crea tu primera imagen usando el formulario de arriba.</p>
@@ -683,36 +600,59 @@ import Layout from '../../layouts/Layout.astro';
       // Fallback placeholder image as a constant
       const placeholderImage = 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect fill=%27%23f0f0f0%27 width=%27100%27 height=%27100%27/%3E%3Ctext x=%2750%27 y=%2755%27 text-anchor=%27middle%27 font-size=%2740%27%3E🖼️%3C/text%3E%3C/svg%3E';
 
-      imagesGrid.innerHTML = images.map(image => `
-        <div class="image-card" data-id="${image.id}">
-          <img src="${image.imageUrl}?size=medium" alt="${escapeHtml(image.alias)}" onerror="this.src='${placeholderImage}'" />
-          <h4>${escapeHtml(image.alias)}</h4>
-          <div class="meta">
-            ID: ${image.id}<br>
-            Creado: ${new Date(image.created).toLocaleDateString('es')}
-          </div>
-          <div class="actions">
-            <button class="btn btn-primary edit-btn" data-id="${image.id}">✏️ Editar</button>
-            <button class="btn btn-danger delete-btn" data-id="${image.id}">🗑️ Eliminar</button>
-          </div>
-        </div>
-      `).join('');
+      // Clear the grid
+      imagesGrid.innerHTML = '';
 
-      // Attach event listeners
-      document.querySelectorAll('.edit-btn').forEach(btn => {
-        btn.addEventListener('click', () => openEditModal((btn as HTMLButtonElement).dataset.id!));
+      // Create web components for each image
+      images.forEach(image => {
+        const imageCard = document.createElement('image-card');
+        imageCard.setAttribute('image-id', image.id);
+        imageCard.setAttribute('image-url', image.imageUrl);
+        imageCard.setAttribute('alias', image.alias);
+        imageCard.setAttribute('created', image.created);
+        imageCard.setAttribute('placeholder', placeholderImage);
+        
+        imagesGrid.appendChild(imageCard);
       });
-      
-      document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', () => deleteImage((btn as HTMLButtonElement).dataset.id!));
-      });
+
+      // Attach event listeners using event delegation
+      attachImageCardEventListeners();
     }
 
-    // Escape HTML for XSS prevention
-    function escapeHtml(text: string): string {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+    // Attach event listeners to image card buttons using event delegation
+    function attachImageCardEventListeners() {
+      // Remove existing listeners to prevent duplicates
+      imagesGrid.removeEventListener('click', handleImageCardClick);
+      
+      // Add event listener using delegation
+      imagesGrid.addEventListener('click', handleImageCardClick);
+    }
+
+    // Handle clicks on image card buttons
+    function handleImageCardClick(e: Event) {
+      // Check if the click originated from inside a shadow root
+      const composedPath = e.composedPath();
+      
+      // Find the button in the composed path
+      let button: HTMLElement | null = null;
+      for (const element of composedPath) {
+        if (element instanceof HTMLElement && 
+            (element.classList.contains('edit-btn') || element.classList.contains('delete-btn'))) {
+          button = element;
+          break;
+        }
+      }
+      
+      if (!button) return;
+      
+      const imageId = button.getAttribute('data-id');
+      if (!imageId) return;
+      
+      if (button.classList.contains('edit-btn')) {
+        openEditModal(imageId);
+      } else if (button.classList.contains('delete-btn')) {
+        deleteImage(imageId);
+      }
     }
 
     // Render pagination
@@ -742,106 +682,6 @@ import Layout from '../../layouts/Layout.astro';
         });
       });
     }
-
-    // ============================================
-    // WEB COMPONENT FUNCTIONS
-    // ============================================
-    // These functions demonstrate the new web component approach
-    // TODO: Once validated, replace renderImages with renderImagesWebComponent
-    
-    // Load images for web component demo
-    async function loadImagesWebComponent(page = 1) {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      webComponentCurrentPage = page;
-
-      try {
-        const response = await fetch(`${API_URL}/api/admin/images?page=${page}&perPage=${perPage}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          renderImagesWebComponent(data.images);
-          renderPaginationWebComponent(data.page, data.totalPages, data.totalItems);
-        } else {
-          const errorData = await response.json();
-          showError(errorData.error || 'Error al cargar imágenes (web component)');
-        }
-      } catch (error) {
-        console.error('Error loading images (web component):', error);
-        showError('Error de conexión al cargar imágenes (web component)');
-      }
-    }
-
-    // Render images using web components
-    function renderImagesWebComponent(images: any[]) {
-      if (images.length === 0) {
-        webComponentImagesGrid.innerHTML = `
-          <div class="empty-state" style="width: 100%;">
-            <div class="icon">🖼️</div>
-            <h3>No hay imágenes</h3>
-            <p>Crea tu primera imagen usando el formulario de arriba.</p>
-          </div>
-        `;
-        return;
-      }
-
-      // Fallback placeholder image as a constant
-      const placeholderImage = 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect fill=%27%23f0f0f0%27 width=%27100%27 height=%27100%27/%3E%3Ctext x=%2750%27 y=%2755%27 text-anchor=%27middle%27 font-size=%2740%27%3E🖼️%3C/text%3E%3C/svg%3E';
-
-      // Clear the grid
-      webComponentImagesGrid.innerHTML = '';
-
-      // Create web components for each image
-      images.forEach(image => {
-        const imageCard = document.createElement('image-card');
-        imageCard.setAttribute('image-id', image.id);
-        imageCard.setAttribute('image-url', image.imageUrl);
-        imageCard.setAttribute('alias', image.alias);
-        imageCard.setAttribute('created', image.created);
-        imageCard.setAttribute('placeholder', placeholderImage);
-        
-        webComponentImagesGrid.appendChild(imageCard);
-      });
-
-      // Note: Event listeners for edit/delete buttons are not attached in this commit
-      // as per requirement #5. These will be added in a future commit when the web component
-      // is validated and the legacy code is removed.
-    }
-
-    // Render pagination for web component demo
-    function renderPaginationWebComponent(page: number, totalPages: number, totalItems: number) {
-      if (totalPages <= 1) {
-        webComponentPaginationDiv.innerHTML = `<span style="color: #666;">Total: ${totalItems} imagen(es)</span>`;
-        return;
-      }
-
-      let html = '';
-      
-      if (page > 1) {
-        html += `<button class="btn btn-secondary wc-page-btn" data-page="${page - 1}">← Anterior</button>`;
-      }
-      
-      html += `<span style="color: #666; padding: 0.5rem;">Página ${page} de ${totalPages} (${totalItems} total)</span>`;
-      
-      if (page < totalPages) {
-        html += `<button class="btn btn-secondary wc-page-btn" data-page="${page + 1}">Siguiente →</button>`;
-      }
-      
-      webComponentPaginationDiv.innerHTML = html;
-
-      document.querySelectorAll('.wc-page-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          loadImagesWebComponent(parseInt((btn as HTMLButtonElement).dataset.page!));
-        });
-      });
-    }
-    // END WEB COMPONENT FUNCTIONS
-    // ============================================
 
     // Create image
     async function createImage(e: Event) {
@@ -884,7 +724,6 @@ import Layout from '../../layouts/Layout.astro';
           // Clear camera capture preview
           clearCameraCapture('create');
           loadImages(1);
-          loadImagesWebComponent(1); // Also refresh web component demo
         } else {
           showError(data.error || 'Error al crear imagen');
         }
@@ -1072,7 +911,6 @@ import Layout from '../../layouts/Layout.astro';
     // Event listeners
     createForm.addEventListener('submit', createImage);
     refreshBtn.addEventListener('click', () => loadImages(currentPage));
-    refreshWebComponentBtn.addEventListener('click', () => loadImagesWebComponent(webComponentCurrentPage));
     editForm.addEventListener('submit', updateImage);
     cancelEditBtn.addEventListener('click', closeEditModal);
     
